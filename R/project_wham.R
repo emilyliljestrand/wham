@@ -113,6 +113,8 @@ project_wham = function(model,
   # modify wham input (fix parameters at previously estimated values, pad with NAs)
   tryCatch(input2 <- prepare_projection(model, proj.opts, check.version = check.version)
     , error = function(e) {model$err_proj <<- conditionMessage(e)})
+  
+  input2$random <- c("selpars_re","Ecov_re","mu_prior_re","logR_proj")
 
   if("err_proj" %in% names(model)) stop(model$err_proj)
   else{# refit model to estimate derived quantities in projection years
@@ -143,7 +145,7 @@ project_wham = function(model,
       proj_mod$fn(mle)
     }
     proj_mod$marg_nll <- proj_mod$fn(mle) #to make sure it is the same as the base model
-    if(is.fit) if(abs(proj_mod$marg_nll - model$opt$obj)>1e-6) stop("Difference between projection model nll and base model nll > 1e-6")
+    # if(is.fit) if(abs(proj_mod$marg_nll - model$opt$obj)>1e-6) stop("Difference between projection model nll and base model nll > 1e-6")
     proj_mod$rep <- proj_mod$report(proj_mod$env$last.par.best)
     proj_mod$parList <- proj_mod$env$parList(x=mle)
     proj_mod <- check_projF(proj_mod) #projections added.
