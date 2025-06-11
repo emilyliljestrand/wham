@@ -114,7 +114,6 @@ project_wham = function(model,
   tryCatch(input2 <- prepare_projection(model, proj.opts, check.version = check.version)
     , error = function(e) {model$err_proj <<- conditionMessage(e)})
   
-  input2$random <- c("selpars_re","Ecov_re","mu_prior_re","logR_proj")
 
   if("err_proj" %in% names(model)) stop(model$err_proj)
   else{# refit model to estimate derived quantities in projection years

@@ -196,6 +196,8 @@ prepare_projection = function(model, proj.opts, check.version=FALSE) {
   # fill_vals <- function(x){as.factor(rep(NA, length(x)))}
   map <- input$map
   random <- input$random
+  
+  random <- random[random!='log_NAA']
   # map <- lapply(par, fill_vals)
 
   # SCAA (fixed effect Rec devs): set up logR_proj to treat recruitment as random effects in projections
