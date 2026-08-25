@@ -38,6 +38,7 @@ Generates many output plots and tables for a fit WHAM model.
     \item{\code{$ages.lab}}{Character vector, will change age labels in plots (default is \code{1:n.ages}).}
     \item{\code{$font.family}}{Font family, e.g. \code{"Times"}.}
     \item{\code{$browse}}{T/F whether to open the html file in a browser. Default = T.}
+    \item{\code{$colors}}{Color palette, either \code{"default"}, \code{"bw"}, or \code{"dull"}. Default = \code{"default"}.}
   }
 
 Plot functions are located in \code{wham_plots_tables.R}

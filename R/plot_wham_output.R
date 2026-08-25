@@ -13,6 +13,7 @@
 #'     \item{\code{$ages.lab}}{Character vector, will change age labels in plots (default is \code{1:n.ages}).}
 #'     \item{\code{$font.family}}{Font family, e.g. \code{"Times"}.}
 #'     \item{\code{$browse}}{T/F whether to open the html file in a browser. Default = T.}
+#'     \item{\code{$colors}}{Color palette, either \code{"default"}, \code{"bw"}, or \code{"dull"}. Default = \code{"default"}.}
 #'   }
 #'
 #' Plot functions are located in \code{wham_plots_tables.R}
@@ -47,11 +48,16 @@ plot_wham_output <- function(mod, dir.main = getwd(), out.type = 'html', res = 7
 # allow overwrite of default ages.lab = 1:n.ages
   fontfam <- ""
   browse <- TRUE
+  colors <- "default"
   if(!is.null(plot.opts)){
     if(!is.null(plot.opts[["ages.lab"]])) mod$ages.lab <- plot.opts$ages.lab
     if(!is.null(plot.opts[["font.family"]])) fontfam <- plot.opts$font.family
     if(!is.null(plot.opts[["browse"]])) browse <- plot.opts$browse
+    if(!is.null(plot.opts[["colors"]])) colors <- plot.opts$colors
   }
+  colors <- match.arg(colors, c("default", "bw", "dull"))
+  old.options <- options(wham.colors = colors)
+  on.exit(options(old.options), add = TRUE)
 
   if(!out.type %in% c('html', 'pdf', 'png')){
     stop("out.type must be one of 'html', 'pdf', or 'png'. See ?plot_wham_output")
