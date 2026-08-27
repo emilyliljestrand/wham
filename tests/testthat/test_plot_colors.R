@@ -2,10 +2,7 @@ test_that("WHAM plot color modes return the expected palettes", {
   old.options <- options(wham.colors = "default")
   on.exit(options(old.options), add = TRUE)
 
-  expect_equal(wham:::wham_palette(4), grDevices::hcl.colors(4, palette = "Blues 2", rev = FALSE))
-
-  options(wham.colors = "classic")
-  expect_equal(wham:::wham_palette(4), grDevices::hcl.colors(4, palette = "Blues 2", rev = FALSE))
+  expect_equal(wham:::wham_palette(4), viridisLite::viridis(4))
 
   options(wham.colors = "bw")
   bw <- grDevices::col2rgb(wham:::wham_palette(4))
@@ -14,8 +11,16 @@ test_that("WHAM plot color modes return the expected palettes", {
 
   options(wham.colors = "muted")
   expect_length(wham:::wham_palette(4), 4)
-  expect_false(identical(wham:::wham_palette(4), grDevices::hcl.colors(4, palette = "Blues 2", rev = FALSE)))
+  expect_false(identical(wham:::wham_palette(4), viridisLite::viridis(4)))
 
-  options(wham.colors = "viridis")
-  expect_equal(wham:::wham_palette(4), viridisLite::viridis(4))
+  options(wham.colors = "highcontrast")
+  expect_length(wham:::wham_palette(4), 4)
+
+  options(wham.colors = "pastel")
+  expect_length(wham:::wham_palette(4), 4)
+
+  options(wham.colors = "dull")
+  dull <- grDevices::col2rgb(wham:::wham_palette(4))
+  default <- grDevices::col2rgb(viridisLite::viridis(4))
+  expect_true(all(dull <= default))
 })

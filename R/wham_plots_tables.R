@@ -484,23 +484,21 @@ plot.osa.residuals <- function(mod, do.tex=FALSE, do.png=FALSE, fontfam="", res=
 
 wham_palette <- function(n){
   colors <- getOption("wham.colors", "default")
+  default.colors <- viridisLite::viridis(n)
 
   switch(
     colors,
-    default = grDevices::hcl.colors(n, palette = "Blues 2", rev = FALSE),
-    classic = grDevices::hcl.colors(n, palette = "Blues 2", rev = FALSE),
+    default = default.colors,
     bw = grDevices::gray.colors(n, start = 0.15, end = 0.75),
-    dull = grDevices::hcl.colors(n, palette = "Grays", rev = FALSE),
     muted = grDevices::hcl.colors(n, palette = "Teal Grays", rev = TRUE),
     warm = grDevices::hcl.colors(n, palette = "YlOrRd", rev = FALSE),
     ocean = grDevices::hcl.colors(n, palette = "Teal", rev = FALSE),
     forest = grDevices::hcl.colors(n, palette = "Green-Brown", rev = TRUE),
-    highcontrast = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf")[1:n],
+    highcontrast = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(n),
     pastel = grDevices::hcl.colors(n, palette = "Pastel 1", rev = FALSE),
-    viridis = viridisLite::viridis(n),
     sage = grDevices::hcl.colors(n, palette = "Green-Brown", rev = TRUE),
-    grDevices::hcl.colors(n, palette = "Blues 2", rev = FALSE)
+    dull = grDevices::rgb(grDevices::col2rgb(default.colors) * 0.65, maxColorValue = 255)
   )
 }
 
@@ -509,20 +507,17 @@ wham_fill_scale <- function(){
 
   switch(
     colors,
-    default = ggplot2::scale_fill_gradientn(colours = wham_palette(7)),
-    classic = ggplot2::scale_fill_gradientn(colours = wham_palette(7)),
+    default = viridis::scale_fill_viridis(),
     bw = ggplot2::scale_fill_gradient(low = "white", high = "black"),
-    dull = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Grays")),
     muted = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Teal Grays", rev = TRUE)),
     warm = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "YlOrRd", rev = FALSE)),
     ocean = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Teal", rev = FALSE)),
     forest = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Green-Brown", rev = TRUE)),
-    highcontrast = ggplot2::scale_fill_gradientn(colours = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf")),
+    highcontrast = ggplot2::scale_fill_gradientn(colours = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
+      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(20)),
     pastel = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Pastel 1", rev = FALSE)),
-    viridis = viridis::scale_fill_viridis(),
     sage = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Green-Brown", rev = TRUE)),
-    ggplot2::scale_fill_gradientn(colours = wham_palette(7))
+    dull = ggplot2::scale_fill_gradientn(colours = wham_palette(20))
   )
 }
 
