@@ -490,15 +490,14 @@ wham_palette <- function(n){
     colors,
     default = default.colors,
     bw = grDevices::gray.colors(n, start = 0.15, end = 0.75),
-    muted = grDevices::hcl.colors(n, palette = "Teal Grays", rev = TRUE),
+    gray = grDevices::gray.colors(n, start = 0.35, end = 0.85),
+    cividis = viridisLite::cividis(n),
     warm = grDevices::hcl.colors(n, palette = "YlOrRd", rev = FALSE),
     ocean = grDevices::hcl.colors(n, palette = "Teal", rev = FALSE),
     forest = grDevices::hcl.colors(n, palette = "Green-Brown", rev = TRUE),
     highcontrast = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
       "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(n),
-    pastel = grDevices::hcl.colors(n, palette = "Pastel 1", rev = FALSE),
-    sage = grDevices::hcl.colors(n, palette = "Green-Brown", rev = TRUE),
-    dull = grDevices::rgb(grDevices::col2rgb(default.colors) * 0.65, maxColorValue = 255)
+    pastel = grDevices::hcl.colors(n, palette = "Pastel 1", rev = FALSE)
   )
 }
 
@@ -509,15 +508,14 @@ wham_fill_scale <- function(){
     colors,
     default = viridis::scale_fill_viridis(),
     bw = ggplot2::scale_fill_gradient(low = "white", high = "black"),
-    muted = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Teal Grays", rev = TRUE)),
+    gray = ggplot2::scale_fill_gradient(low = "#f2f2f2", high = "#666666"),
+    cividis = ggplot2::scale_fill_gradientn(colours = viridisLite::cividis(20)),
     warm = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "YlOrRd", rev = FALSE)),
     ocean = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Teal", rev = FALSE)),
     forest = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Green-Brown", rev = TRUE)),
     highcontrast = ggplot2::scale_fill_gradientn(colours = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
       "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(20)),
-    pastel = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Pastel 1", rev = FALSE)),
-    sage = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Green-Brown", rev = TRUE)),
-    dull = ggplot2::scale_fill_gradientn(colours = wham_palette(20))
+    pastel = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Pastel 1", rev = FALSE))
   )
 }
 

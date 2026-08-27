@@ -9,18 +9,17 @@ test_that("WHAM plot color modes return the expected palettes", {
   expect_equal(bw[1, ], bw[2, ])
   expect_equal(bw[2, ], bw[3, ])
 
-  options(wham.colors = "muted")
-  expect_length(wham:::wham_palette(4), 4)
-  expect_false(identical(wham:::wham_palette(4), viridisLite::viridis(4)))
+  options(wham.colors = "gray")
+  gray <- grDevices::col2rgb(wham:::wham_palette(4))
+  expect_equal(gray[1, ], gray[2, ])
+  expect_equal(gray[2, ], gray[3, ])
+
+  options(wham.colors = "cividis")
+  expect_equal(wham:::wham_palette(4), viridisLite::cividis(4))
 
   options(wham.colors = "highcontrast")
   expect_length(wham:::wham_palette(4), 4)
 
   options(wham.colors = "pastel")
   expect_length(wham:::wham_palette(4), 4)
-
-  options(wham.colors = "dull")
-  dull <- grDevices::col2rgb(wham:::wham_palette(4))
-  default <- grDevices::col2rgb(viridisLite::viridis(4))
-  expect_true(all(dull <= default))
 })
