@@ -1,4 +1,4 @@
-plot.ecov <- function(mod, plot.pad = FALSE, do.tex=FALSE, do.png=FALSE, fontfam="", res=72, od)
+plot.ecov <- function(mod, plot.pad = FALSE, do.tex=FALSE, do.png=FALSE, fontfam="", res=72, od){
   origpar <- par(no.readonly = TRUE)
   dat <- mod$env$data
   ecov.pred <- mod$rep$Ecov_x
