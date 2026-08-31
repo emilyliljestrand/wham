@@ -497,7 +497,8 @@ wham_palette <- function(n){
     forest = grDevices::hcl.colors(n, palette = "Green-Brown", rev = TRUE),
     highcontrast = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
       "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(n),
-    pastel = grDevices::hcl.colors(n, palette = "Pastel 1", rev = FALSE)
+    pastel = grDevices::hcl.colors(n, palette = "Pastel 1", rev = FALSE),
+    turbo = viridisLite::turbo(n, begin = 0.2, end = 0.8)
   )
 }
 
@@ -507,15 +508,16 @@ wham_fill_scale <- function(){
   switch(
     colors,
     default = viridis::scale_fill_viridis(),
+    cividis = viridis::scale_fill_viridis(option = "cividis"),
+    turbo = viridis::scale_fill_viridis(option = "turbo", begin = 0.2, end = 0.8),
     bw = ggplot2::scale_fill_gradient(low = "white", high = "black"),
     gray = ggplot2::scale_fill_gradient(low = "#f2f2f2", high = "#666666"),
-    cividis = ggplot2::scale_fill_gradientn(colours = viridisLite::cividis(20)),
-    warm = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "YlOrRd", rev = FALSE)),
-    ocean = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Teal", rev = FALSE)),
-    forest = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Green-Brown", rev = TRUE)),
+    warm = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(256, "YlOrRd", rev = FALSE)),
+    ocean = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(256, "Teal", rev = FALSE)),
+    forest = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(256, "Green-Brown", rev = TRUE)),
     highcontrast = ggplot2::scale_fill_gradientn(colours = grDevices::colorRampPalette(c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd",
-      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(20)),
-    pastel = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(20, "Pastel 1", rev = FALSE))
+      "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"), space = "Lab")(256)),
+    pastel = ggplot2::scale_fill_gradientn(colours = grDevices::hcl.colors(256, "Pastel 1", rev = FALSE))
   )
 }
 

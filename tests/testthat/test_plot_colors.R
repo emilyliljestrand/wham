@@ -1,3 +1,5 @@
+context("plot color palettes")
+
 test_that("WHAM plot color modes return the expected palettes", {
   old.options <- options(wham.colors = "default")
   on.exit(options(old.options), add = TRUE)
@@ -22,4 +24,7 @@ test_that("WHAM plot color modes return the expected palettes", {
 
   options(wham.colors = "pastel")
   expect_length(wham:::wham_palette(4), 4)
+
+  options(wham.colors = "turbo")
+  expect_equal(wham:::wham_palette(4), viridisLite::turbo(4, begin = 0.2, end = 0.8))
 })

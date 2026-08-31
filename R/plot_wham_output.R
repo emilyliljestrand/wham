@@ -13,7 +13,8 @@
 #'     \item{\code{$ages.lab}}{Character vector, will change age labels in plots (default is \code{1:n.ages}).}
 #'     \item{\code{$font.family}}{Font family, e.g. \code{"Times"}.}
 #'     \item{\code{$browse}}{T/F whether to open the html file in a browser. Default = T.}
-#'     \item{\code{$colors}}{Color palette. Options are \code{"default"}, \code{"bw"}, \code{"gray"}, \code{"cividis"}, \code{"warm"}, \code{"ocean"}, \code{"forest"}, \code{"highcontrast"}, and \code{"pastel"}. Default = \code{"default"}.}
+#'     \item{\code{$colors}}{Color palette. Options are \code{"default"}, \code{"bw"}, \code{"gray"}, \code{"cividis"}, \code{"warm"}, \code{"ocean"}, \code{"forest"}, 
+#'       \code{"highcontrast"}, \code{"pastel"}, and \code{"turbo"}. Default = \code{"default"}.}
 #'   }
 #'
 #' Plot functions are located in \code{wham_plots_tables.R}
@@ -55,7 +56,7 @@ plot_wham_output <- function(mod, dir.main = getwd(), out.type = 'html', res = 7
     if(!is.null(plot.opts[["browse"]])) browse <- plot.opts$browse
     if(!is.null(plot.opts[["colors"]])) colors <- plot.opts$colors
   }
-  colors <- match.arg(colors, c("default", "bw", "gray", "cividis", "warm", "ocean", "forest", "highcontrast", "pastel"))
+  colors <- match.arg(colors, c("default", "bw", "gray", "cividis", "warm", "ocean", "forest", "highcontrast", "pastel", "turbo"))
   old.options <- options(wham.colors = colors)
   on.exit(options(old.options), add = TRUE)
 
