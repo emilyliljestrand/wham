@@ -63,6 +63,12 @@ files of tables of parameter estimates. (tabs: 'input data',
 
   T/F whether to open the html file in a browser. Default = T.
 
+- `$colors`:
+
+  Color palette. Options are `"default"`, `"bw"`, `"gray"`, `"cividis"`,
+  `"warm"`, `"ocean"`, `"forest"`, `"highcontrast"`, `"pastel"`, and
+  `"turbo"`. Default = `"default"`.
+
 Plot functions are located in `wham_plots_tables.R` Table function is
 located in `par_tables_fn.R`
 

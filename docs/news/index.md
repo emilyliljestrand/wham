@@ -1,9 +1,12 @@
 # Changelog
 
-## wham 2.1.0.9009 (2026-08-07)
+## wham 2.1.0.9010 (2026-08-31)
 
 #### Minor improvements
 
+- (2.1.0.9010) added alternative color palettes to use for plotting wham
+  output.
+  [4111197](https://github.com/timjmiller/wham/commit/4111197ea1689ad92ee050b598d0fbde29408e0d)
 - (2.1.0.9006) added `map_re` element to selectivity options to allow
   greater flexibility of random effects configuration.
   [c7f2e2a](https://github.com/timjmiller/wham/commit/c7f2e2a5f172f48a41802b3081ecfcc3d5e4f457)
@@ -13,6 +16,12 @@
 
 #### Bug fixes
 
+- (2.1.0.9010) fix bug in `set_ecov` when specifying lag of ecov effect
+  on movement rates.
+  [4111197](https://github.com/timjmiller/wham/commit/4111197ea1689ad92ee050b598d0fbde29408e0d)
+- (2.1.0.9010) fix bug in estimating time-invariant M when ASAP input
+  has time-varying M.
+  [4111197](https://github.com/timjmiller/wham/commit/4111197ea1689ad92ee050b598d0fbde29408e0d)
 - (2.1.0.9009) fix bug CIs for Tweedie power parameter from
   PR[\#92](https://github.com/timjmiller/wham/pull/92).
   [5bb24c5](https://github.com/timjmiller/wham/commit/5bb24c50ab854c49910f1ec9e06bc89297d6e118)
