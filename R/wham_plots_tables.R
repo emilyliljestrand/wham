@@ -816,7 +816,7 @@ get.wham.results.fn <- function(mod, out.dir, do.tex = FALSE, do.png = FALSE)
   res <- list()
   res$ll <- -mod$opt$obj
   res$np <- length(mod$opt$par)
-  res$aic <- 2*(mod$opt$obj + res$np)
+  res$aic <- aic(mod)
   #rho <- mohns_rho(mod) #if no peels, then this will be NULL
   # tcol <- col2rgb('black')
   # black.poly <- paste(rgb(tcol[1,],tcol[2,], tcol[3,], maxColorValue = 255), "55", sep = '')
