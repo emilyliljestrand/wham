@@ -608,6 +608,12 @@ par_tables_fn <- function(mod, do.tex=FALSE, do.html=FALSE, od = NULL)
       }
     }
   }
+
+  for(s in 1:data$n_stocks){
+    SSB <- matrix(mod$rep$SSB[,s], ncol = 1,
+      dimnames = list(mod$years_full, "SSB"))
+    if(!is.null(od)) saveRDS(SSB, file = file.path(od, paste0(stock.names.f[s], "_SSB_table.RDS")))
+  }
       
   #Total F at age by region
   for(r in 1:data$n_regions){
