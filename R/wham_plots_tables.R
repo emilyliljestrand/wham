@@ -1620,19 +1620,9 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
     sb_p <- dat$selblock_pointer_indices
   }
   fleet_region_names <- mod$input$region_names[fleet_regions]
-  sel.low.all <- sel.high.all <- NULL
+  sel.se.all <- NULL
   if(inherits(mod$sdrep, "sdreport")) {
-    logit.selpars <- mod$parList$logit_selpars
-    logit.selpars.se <- TMB:::as.list.sdreport(mod$sdrep, what = "Std")$logit_selpars
-    sel.low.all <- sel.high.all <- lapply(mod$rep$selAA, function(x) apply(x, 2, mean))
-    for(b in which(dat$selblock_models == 1)) {
-      sel.low.all[[b]] <- dat$selpars_lower[b, 1:dat$n_ages] +
-        (dat$selpars_upper[b, 1:dat$n_ages] - dat$selpars_lower[b, 1:dat$n_ages]) /
-        (1 + exp(-(logit.selpars[b, 1:dat$n_ages] - qnorm(0.975) * logit.selpars.se[b, 1:dat$n_ages])))
-      sel.high.all[[b]] <- dat$selpars_lower[b, 1:dat$n_ages] +
-        (dat$selpars_upper[b, 1:dat$n_ages] - dat$selpars_lower[b, 1:dat$n_ages]) /
-        (1 + exp(-(logit.selpars[b, 1:dat$n_ages] + qnorm(0.975) * logit.selpars.se[b, 1:dat$n_ages])))
-    }
+    sel.se.all <- TMB:::as.list.sdreport(mod$sdrep, what = "Std", report = TRUE)$selAA
   }
   
   if(missing(plot.colors)) plot.colors <- wham_palette(length(unique(sb_p)))
@@ -1648,10 +1638,11 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
 		n.blocks <- length(blocks)
     # sel <- rbind(mod$rep$selblocks[blocks,])
     sel <- do.call(rbind, lapply(mod$rep$selAA, function(x) apply(x,2,mean)))[blocks,,drop=FALSE]
-    sel.low <- sel.high <- NULL
-    if(!is.null(sel.low.all)) {
-      sel.low <- do.call(rbind, sel.low.all)[blocks,,drop=FALSE]
-      sel.high <- do.call(rbind, sel.high.all)[blocks,,drop=FALSE]
+    sel.se <- NULL
+    if(!is.null(sel.se.all)) {
+      sel.se <- do.call(rbind, lapply(sel.se.all, function(x) apply(x, 2, mean, na.rm = TRUE)))[blocks,,drop=FALSE]
+      sel.low <- pmax(0, sel - qnorm(0.975) * sel.se)
+      sel.high <- pmin(1, sel + qnorm(0.975) * sel.se)
     }
 		minyr <- rep(NA, n.blocks)
 		maxyr <- rep(NA, n.blocks)
@@ -1670,7 +1661,7 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
 				axis(2, lwd = 2)
 				box(lwd=2)
 			}
-      if(!is.null(sel.low) && all(is.finite(c(sel.low[j,], sel.high[j,])))) {
+      if(!is.null(sel.se) && all(is.finite(c(sel.low[j,], sel.high[j,])))) {
         polygon(c(ages, rev(ages)), c(sel.low[j,], rev(sel.high[j,])),
           col = adjustcolor(my.col[j], alpha.f = 0.25), border = "transparent")
       }
