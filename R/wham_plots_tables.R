@@ -1620,10 +1620,6 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
     sb_p <- dat$selblock_pointer_indices
   }
   fleet_region_names <- mod$input$region_names[fleet_regions]
-  sel.se.all <- NULL
-  if(inherits(mod$sdrep, "sdreport")) {
-    sel.se.all <- TMB:::as.list.sdreport(mod$sdrep, what = "Std", report = TRUE)$selAA
-  }
   
   if(missing(plot.colors)) plot.colors <- wham_palette(length(unique(sb_p)))
   pattern <- "-| |\\#|/|:|\\?|<|>|\\|\\\\|\\*" #find -, or space, or #, or /, or :, or ?, or < or > or | or \\ or *
@@ -1638,12 +1634,6 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
 		n.blocks <- length(blocks)
     # sel <- rbind(mod$rep$selblocks[blocks,])
     sel <- do.call(rbind, lapply(mod$rep$selAA, function(x) apply(x,2,mean)))[blocks,,drop=FALSE]
-    sel.se <- NULL
-    if(!is.null(sel.se.all)) {
-      sel.se <- do.call(rbind, lapply(sel.se.all, function(x) apply(x, 2, mean, na.rm = TRUE)))[blocks,,drop=FALSE]
-      sel.low <- pmax(0, sel - qnorm(0.975) * sel.se)
-      sel.high <- pmin(1, sel + qnorm(0.975) * sel.se)
-    }
 		minyr <- rep(NA, n.blocks)
 		maxyr <- rep(NA, n.blocks)
 		my.col <- rep(NA, n.blocks)
@@ -1661,11 +1651,7 @@ plot.sel.blocks <- function(mod, ages, ages.lab, plot.colors, indices = FALSE, d
 				axis(2, lwd = 2)
 				box(lwd=2)
 			}
-      if(!is.null(sel.se) && all(is.finite(c(sel.low[j,], sel.high[j,])))) {
-        polygon(c(ages, rev(ages)), c(sel.low[j,], rev(sel.high[j,])),
-          col = adjustcolor(my.col[j], alpha.f = 0.25), border = "transparent")
-      }
-      lines(ages, sel[j,], type='l', col=my.col[j], lwd=2)
+			if (j>1) lines(ages, sel[j,], type='l', col=my.col[j], lwd=2)
 		}
 		title(pn, line = 1)
 		legend("topright", col=my.col, legend=paste0(minyr, " - ", maxyr), lwd=2, bg = "white")
