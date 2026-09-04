@@ -2322,7 +2322,10 @@ plot.scaled.index.input <- function(mod, plot.colors)
 	axis(2)
 	box()
 	mtext(side = 2, "Rescaled Indices", outer = FALSE, line = 3)
-	for (i in 1:n_indices) lines(years,rescaled[,i],col=plot.colors[i])
+  for (i in 1:n_indices) {
+    lines(years,rescaled[,i],col=plot.colors[i])
+    points(years, rescaled[,i], col=plot.colors[i], pch=19, cex=0.6)
+  }
   leg <- paste0(mod$input$index_names, " ", mod$input$region_names[mod$input$data$index_regions])
   legend("right", legend = leg, col = plot.colors, lty = 1, horiz = FALSE, xpd = NA, inset = c(-0.5,0), bty = "n")
   #legend("top", legend = mod$input$index_names, col = plot.colors, lty = 1, horiz = TRUE, xpd = NA, inset = c(0,-0.1), bty = "n")
@@ -2337,8 +2340,11 @@ plot.scaled.index.input <- function(mod, plot.colors)
 	my.log.range <- range(log.rescaled, na.rm=T)
 	plot(years,log.rescaled[,1], xlab="",ylab="",ylim=my.log.range,col=plot.colors[1],type='n')
 	grid(col = gray(0.7))
-	for (i in 1:n_indices) lines(years,log.rescaled[,i],col=plot.colors[i])
-	mtext(side = 2, "Rescaled Log(Indices)", outer = FALSE, line = 3)
+  for (i in 1:n_indices) {
+    lines(years,log.rescaled[,i],col=plot.colors[i])
+    points(years, log.rescaled[,i], col=plot.colors[i], pch=19, cex=0.6)
+  }
+	mtext(side = 2, "Rescaled Log Indices", outer = FALSE, line = 3)
 	mtext(side = 1, "Year", outer = FALSE, line = 3)
 	par(origpar)
 }
@@ -3504,6 +3510,7 @@ plot.retro <- function(mod,y.lab,y.range1 = NULL,y.range2 = NULL, alpha = 0.05, 
     # standard retro plot
     plot.colors <- wham_palette(npeels+1)
     tcol <- adjustcolor(plot.colors, alpha.f=0.4)
+    rho.vals <- mohns_rho(mod)
     # tcol <- col2rgb(plot.colors)
     # tcol <- rgb(tcol[1,],tcol[2,],tcol[3,], maxColorValue = 255, alpha = 200)
     # if(what %in% c("NAA","NAA_age")){
@@ -3539,6 +3546,8 @@ plot.retro <- function(mod,y.lab,y.range1 = NULL,y.range2 = NULL, alpha = 0.05, 
               lines(years[1:(n_years-j)],res[[j+1]][s,r,1:(n_years-j),i], col = tcol[j+1])
               points(years[n_years-j],res[[j+1]][s,r,n_years-j,i],pch=16,col=plot.colors[j+1])
             }
+            rho.plot <- round(rho.vals$naa[s,r,i],3)
+            legend("bottomleft", legend = bquote(rho == .(rho.plot)), bty = "n")
           }
           title(paste0(mod$input$stock_names[s], " in ", mod$input$region_names[r]), line = 1, outer = TRUE)
           if(do.tex | do.png) dev.off() else par(origpar)
@@ -3556,6 +3565,8 @@ plot.retro <- function(mod,y.lab,y.range1 = NULL,y.range2 = NULL, alpha = 0.05, 
             lines(years[1:(n_years-j)],res[[j+1]][s,r,1:(n_years-j),age.ind], col = tcol[j+1])
             points(years[n_years-j],res[[j+1]][s,r,n_years-j,age.ind],pch=16,col=plot.colors[j+1])
           }
+          rho.plot <- round(rho.vals$naa[s,r,age.ind],3)
+          legend("bottomleft", legend = bquote(rho == .(rho.plot)), bty = "n")
           title(paste0(mod$input$stock_names[s], " in ", mod$input$region_names[r]), line = 1, outer = TRUE)
           if(do.tex | do.png) dev.off() else par(origpar)
         }
@@ -3583,6 +3594,8 @@ plot.retro <- function(mod,y.lab,y.range1 = NULL,y.range2 = NULL, alpha = 0.05, 
           lines(years[1:(n_years-i)],res[[i+1]][1:(n_years-i),ns + p], col = tcol[i+1])
           points(years[n_years-i],res[[i+1]][n_years-i,ns + p],pch=16,col=plot.colors[i+1])
         }
+        rho.plot <- round(rho.vals[[what]][p],3)
+        legend("bottomleft", legend = bquote(rho == .(rho.plot)), bty = "n")
         title(names.plot[p], line = 1, outer = TRUE)
         if(do.tex | do.png) dev.off() else par(origpar)
       }
@@ -3590,7 +3603,6 @@ plot.retro <- function(mod,y.lab,y.range1 = NULL,y.range2 = NULL, alpha = 0.05, 
 
     # relative retro plot
     if(missing(y.lab)) y.lab <- bquote(paste("Mohn's ", rho, "(",.(what),")"))
-    rho.vals <- mohns_rho(mod)
 
     if(what %in% c("NAA","NAA_age")) for(s in 1:mod$input$data$n_stocks){
       regions <- 1:mod$input$data$n_regions
