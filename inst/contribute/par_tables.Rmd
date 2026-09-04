@@ -61,7 +61,9 @@ if(length(plot_files)) knitr::include_graphics(plot_files)
 
 ## WHAM Tables {.tabset}
 
+<!--
 ### Parameter estimates
+-->
 
 ```{r echo=FALSE, message=FALSE, warnings=FALSE, error = FALSE, results='asis'}
 out = readRDS("parameter_estimates_table.RDS")
@@ -105,20 +107,6 @@ for(s in 1:dat$n_stocks) for(r in 1:dat$n_regions){
   out <- out |> knitr::kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T, 
     label = paste0(stock.names.l[s], "-", region.names.l[r], "-NAA-table"), 
       caption=paste0("Abundance at age (1000s) for ", stock.names.tab[s], " in ", region.names.tab[r],".")) |>
-      kableExtra::kable_styling(latex_options=c("basic", "repeat_header"))
-  cat(knitr::knit_print(out))
-}
-```
-
-### Spawning stock biomass
-
-```{r echo=FALSE, message=FALSE, warnings=FALSE, error = FALSE, results='asis'}
-for(s in 1:dat$n_stocks){
-  out = readRDS(paste0(stock.names.f[s], "_SSB_table.RDS"))
-  out = round(out, 0)
-  out <- out |> knitr::kable(format = type, booktabs = T, escape=F, longtable = T, row.names = T,
-    label = paste0(stock.names.l[s], "-SSB-table"),
-      caption=paste0("Total spawning stock biomass for ", stock.names.tab[s], ".")) |>
       kableExtra::kable_styling(latex_options=c("basic", "repeat_header"))
   cat(knitr::knit_print(out))
 }
