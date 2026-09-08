@@ -650,6 +650,28 @@ par_tables_fn <- function(mod, do.tex=FALSE, do.html=FALSE, od = NULL)
       }
     }
   }
+
+  #Spawning stock biomass by year and stock
+  SSB <- as.matrix(mod$rep$SSB)
+  rownames(SSB) <- mod$years_full
+  colnames(SSB) <- stock.names.tab
+  if(data$n_stocks > 1) SSB <- cbind(SSB, Total = rowSums(SSB))
+  if(!is.null(od)) saveRDS(SSB, file = file.path(od, "SSB_table.RDS"))
+  if(!is.null(mod$opt)) if(!is.na(mod$na_sdrep)) if(mod$is_sdrep) {
+    SSB.cv <- matrix(NA, nrow = NROW(SSB), ncol = data$n_stocks)
+    SSB.cv[] <- sd[["log_SSB"]]
+    if(data$n_stocks > 1) SSB.cv <- cbind(SSB.cv, sd[["log_SSB_all"]])
+    SSB.sd <- SSB * SSB.cv
+    SSB.lo <- exp(log(SSB) - qnorm(0.975) * SSB.cv)
+    SSB.hi <- exp(log(SSB) + qnorm(0.975) * SSB.cv)
+    dimnames(SSB.sd) <- dimnames(SSB.cv) <- dimnames(SSB.lo) <- dimnames(SSB.hi) <- dimnames(SSB)
+    if(!is.null(od)){
+      saveRDS(SSB.sd, file = file.path(od, "SSB_sd_table.RDS"))
+      saveRDS(SSB.cv, file = file.path(od, "SSB_cv_table.RDS"))
+      saveRDS(SSB.lo, file = file.path(od, "SSB_lo_table.RDS"))
+      saveRDS(SSB.hi, file = file.path(od, "SSB_hi_table.RDS"))
+    }
+  }
   
   wham.dir <- find.package("wham")
   pt <- list.files(find.package("wham"), pattern = "par_tables.Rmd", recursive = T, full.names = T)[1]

@@ -2,7 +2,7 @@
 #'
 #' Generates many output plots and tables for a fit WHAM model.
 #'
-#' \code{out.type = 'html'} (default) makes a html file for viewing plot .png files and html tables of parameter estimates in a browser.
+#' \code{out.type = 'html'} (default) makes a html file for viewing plot .png files and html tables of parameter estimates, numbers at age, fishing mortality, and spawning stock biomass in a browser.
 #' \code{out.type = 'pdf'} makes one pdf file of all plots and tables. 
 #' \code{out.type = 'png'} creates a subdirectory `plots_png`` in \code{dir.main} and saves .png files within.
 #' \code{out.type = 'pdf' or 'png'} makes LaTeX and pdf files of tables of parameter estimates.
