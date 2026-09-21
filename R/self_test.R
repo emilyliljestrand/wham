@@ -71,7 +71,8 @@ self_test <- function(fit_RDS = NULL, n = 10, seeds = NULL, which_seeds = NULL, 
         x <- try(fit_wham(sim_input, do.sdrep = FALSE, do.retro = FALSE, do.osa = FALSE, do.brps = FALSE, MakeADFun.silent = TRUE))
         out <- list(obj = NA, 
           par = rep(NA,length(sim_mod$par)), 
-          grad = rep(NA, length(sim_mod$par)), 
+          grad = rep(NA, length(sim_mod$par)),
+          convergence = rep(NA, length(sim_mod$par)),
           SSB = matrix(NA,NROW(sim_mod$rep$SSB),NCOL(sim_mod$rep$SSB)), 
           F = rep(NA,length(sim_mod$rep$log_F_tot)), 
           NAA = array(NA, dim = dim(sim_mod$rep$NAA)))
@@ -79,6 +80,7 @@ self_test <- function(fit_RDS = NULL, n = 10, seeds = NULL, which_seeds = NULL, 
           out$obj <- x$opt$obj
           out$par <- x$opt$par
           out$grad <- x$final_gradient
+          out$convergence <- x$opt$convergence
           out$SSB <- x$rep$SSB
           out$F <- exp(x$rep$log_F_tot)
           out$NAA <- x$rep$NAA
@@ -117,6 +119,7 @@ self_test <- function(fit_RDS = NULL, n = 10, seeds = NULL, which_seeds = NULL, 
       out <- list(obj = NA, 
         par = rep(NA,length(sim_mod$par)), 
         grad = rep(NA, length(sim_mod$par)), 
+        convergence = rep(NA, length(sim_mod$par)),
         SSB = matrix(NA,NROW(sim_mod$rep$SSB),NCOL(sim_mod$rep$SSB)), 
         F = rep(NA,length(sim_mod$rep$log_F_tot)), 
         NAA = array(NA, dim = dim(sim_mod$rep$NAA)))
@@ -124,6 +127,7 @@ self_test <- function(fit_RDS = NULL, n = 10, seeds = NULL, which_seeds = NULL, 
         out$obj <- x$opt$obj
         out$par <- x$opt$par
         out$grad <- x$final_gradient
+        out$convergence <- x$opt$convergence
         out$SSB <- x$rep$SSB
         out$F <- exp(x$rep$log_F_tot)
         out$NAA <- x$rep$NAA
