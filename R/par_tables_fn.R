@@ -1,4 +1,4 @@
-par_tables_fn <- function(mod, do.tex=FALSE, do.html=FALSE, od = NULL)
+﻿par_tables_fn <- function(mod, do.tex=FALSE, do.html=FALSE, od = NULL)
 {
   #require(rmarkdown)
 
@@ -654,7 +654,7 @@ par_tables_fn <- function(mod, do.tex=FALSE, do.html=FALSE, od = NULL)
   #Spawning stock biomass by year and spawn region
   SSB <- mod[["rep"]][["SSB"]]
   rownames(SSB) <- mod[["years_full"]]
-  colnames(SSB) <- ifelse(data[["n_stocks"]]>1, stock.names.tab, "Total")
+  colnames(SSB) <- if(data[["n_stocks"]]>1) stock.names.tab else "Total"
   if(data[["n_stocks"]]>1) SSB <- cbind(SSB, Total = rowSums(SSB))
   if(!is.null(od)) saveRDS(SSB, file = file.path(od, "SSB_table.RDS"))
   
