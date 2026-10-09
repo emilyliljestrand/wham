@@ -2,12 +2,12 @@
 % Please edit documentation in R/prepare_wham_input.R
 \name{prepare_wham_input_from_fit}
 \alias{prepare_wham_input_from_fit}
-\title{Prepare input data and parameters from a fitted WHAM model file}
+\title{Prepare input data and parameters from a fitted WHAM model}
 \usage{
-prepare_wham_input_from_fit(fit_RDS = NULL)
+prepare_wham_input_from_fit(fit = NULL)
 }
 \arguments{
-\item{fit_RDS}{character, path to an RDS file containing a fitted WHAM model}
+\item{fit}{a fitted WHAM model object containing an \code{$input} component}
 }
 \value{
 A named list suitable for use as the \code{input} argument to
@@ -16,7 +16,8 @@ A named list suitable for use as the \code{input} argument to
   warning.
 }
 \description{
-Reads a fitted WHAM model saved with \code{saveRDS} and rebuilds its input
+Rebuilds the input from a fitted WHAM model using the preparation options
+stored in the fitted model. Rebuilding the input
 using the preparation options stored in the fitted model. Rebuilding the
 input with the current version of \code{prepare_wham_input} allows known
 changes in the input structure to be applied to an older fitted model.
