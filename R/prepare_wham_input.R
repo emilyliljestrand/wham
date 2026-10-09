@@ -362,6 +362,27 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 #' @seealso \code{\link{prepare_wham_input}}, \code{\link{fit_wham}}
 #'
 #' @export
+# Fitted models store ASAP3 index data after subsetting IAA_mats and the
+# per-index fields to the used indices, while use_index keeps its full length.
+# Realign those fields so set_indices() can select the used indices again.
+align_fitted_asap3_indices <- function(dat) {
+  if (is.null(dat$use_index) || is.null(dat$IAA_mats)) return(dat)
+  n_full <- length(dat$use_index)
+  n_stored <- length(dat$IAA_mats)
+  if (n_stored == n_full || n_stored != sum(dat$use_index == 1)) return(dat)
+  keep <- which(dat$use_index == 1)
+  index_fields <- c(
+    "index_units", "index_acomp_units", "index_month", "use_index_acomp",
+    "index.names", "index_WAA_pointers", "index_sel_choice", "index_sel_option",
+    "index_sel_start_age", "index_sel_end_age", "index_sel_ini"
+  )
+  for (f in index_fields) {
+    if (length(dat[[f]]) == n_full) dat[[f]] <- dat[[f]][keep]
+  }
+  dat$use_index <- rep(1L, n_stored)
+  dat
+}
+
 prepare_wham_input_from_fit <- function(fit = NULL) {
   if (is.null(fit)) {
     stop("Provide a fitted WHAM model object.")
@@ -414,6 +435,13 @@ prepare_wham_input_from_fit <- function(fit = NULL) {
     if (!all(vapply(asap3, function(x) is.list(x) && !is.null(x$dat), logical(1)))) {
       asap3 <- lapply(asap3, function(x) list(dat = x))
     }
+  }
+
+  if (!is.null(asap3)) {
+    asap3 <- lapply(asap3, function(x) {
+      x$dat <- align_fitted_asap3_indices(x$dat)
+      x
+    })
   }
 
   args$asap3 <- asap3
