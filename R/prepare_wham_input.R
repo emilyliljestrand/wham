@@ -345,6 +345,99 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 }
 
 
+#' Prepare input data and parameters from a fitted WHAM model file
+#'
+#' Reads a fitted WHAM model saved with \code{saveRDS} and rebuilds its input
+#' using the preparation options stored in the fitted model. Rebuilding the
+#' input with the current version of \code{prepare_wham_input} allows known
+#' changes in the input structure to be applied to an older fitted model.
+#'
+#' @param fit_RDS character, path to an RDS file containing a fitted WHAM model
+#'
+#' @return A named list suitable for use as the \code{input} argument to
+#'   \code{\link{fit_wham}}. For fitted models created before preparation
+#'   options were stored, the original input is returned unchanged with a
+#'   warning.
+#'
+#' @seealso \code{\link{prepare_wham_input}}, \code{\link{fit_wham}}
+#'
+#' @export
+prepare_wham_input_from_fit <- function(fit_RDS = NULL) {
+  if (length(fit_RDS) != 1L || !is.character(fit_RDS) || is.na(fit_RDS) ||
+      !file.exists(fit_RDS)) {
+    stop("Provide fit_RDS, an RDS file containing a fitted WHAM model.")
+  }
+
+  fit <- readRDS(fit_RDS)
+  if (!is.list(fit) || is.null(fit$input)) {
+    stop("The RDS file does not contain a fitted WHAM model with an $input component.")
+  }
+  old_input <- fit$input
+  if (!is.list(old_input)) {
+    stop("The fitted model's $input component is not a list.")
+  }
+
+  options <- old_input$options
+  if (is.null(options) || !is.list(options)) {
+    warning(
+      "The fitted model does not contain preparation options; returning its stored input unchanged."
+    )
+    return(old_input)
+  }
+
+  # The names of these options have changed over time. Keep this translation
+  # here rather than changing the names used by the component setters.
+  args <- options[c(
+    "basic_info", "catch", "index", "waa", "NAA", "q",
+    "selectivity", "age_comp", "F", "M", "move", "L", "ecov"
+  )]
+  names(args)[names(args) == "catch"] <- "catch_info"
+  names(args)[names(args) == "index"] <- "index_info"
+  names(args)[names(args) == "NAA"] <- "NAA_re"
+  names(args)[names(args) == "q"] <- "catchability"
+
+  # WAA options were historically stored separately from basic_info, while
+  # prepare_wham_input receives them through basic_info.
+  if (!is.null(args$waa)) {
+    if (is.null(args$basic_info)) args$basic_info <- list()
+    args$basic_info[names(args$waa)] <- args$waa
+  }
+  args$waa <- NULL
+
+  if (is.null(args$basic_info)) args$basic_info <- list()
+  recruit_model <- args$basic_info$recruit_model
+  if (is.null(recruit_model)) recruit_model <- old_input$data$recruit_model
+  if (is.null(recruit_model)) recruit_model <- 2
+
+  # prepare_wham_input expects the structure returned by read_asap3_dat.
+  # Fitted inputs retain the processed $dat elements, so restore that wrapper.
+  asap3 <- old_input$asap3
+  if (!is.null(asap3)) {
+    if (!is.list(asap3)) stop("The fitted model's $asap3 component is not a list.")
+    if (!all(vapply(asap3, function(x) is.list(x) && !is.null(x$dat), logical(1)))) {
+      asap3 <- lapply(asap3, function(x) list(dat = x))
+    }
+  }
+
+  args$asap3 <- asap3
+  args$model_name <- old_input$model_name
+  args$recruit_model <- recruit_model
+  args <- args[!vapply(args, is.null, logical(1))]
+
+  rebuilt <- tryCatch(
+    do.call(prepare_wham_input, args),
+    error = function(error) {
+      stop(
+        "Could not rebuild input from the fitted model's preparation options: ",
+        conditionMessage(error),
+        call. = FALSE
+      )
+    }
+  )
+  rebuilt
+}
+
+
 #s may be 2 for most rhos on cpp side which is unusual.
 
 gen.logit <- function(x, low, upp, s=1) (log((x-low)/(upp-x)))/s
