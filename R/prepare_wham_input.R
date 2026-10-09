@@ -345,14 +345,14 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 }
 
 
-#' Prepare input data and parameters from a fitted WHAM model file
+#' Prepare input data and parameters from a fitted WHAM model
 #'
-#' Reads a fitted WHAM model saved with \code{saveRDS} and rebuilds its input
-#' using the preparation options stored in the fitted model. Rebuilding the
+#' Rebuilds the input from a fitted WHAM model using the preparation options
+#' stored in the fitted model. Rebuilding the
 #' input with the current version of \code{prepare_wham_input} allows known
 #' changes in the input structure to be applied to an older fitted model.
 #'
-#' @param fit_RDS character, path to an RDS file containing a fitted WHAM model
+#' @param fit a fitted WHAM model object containing an \code{$input} component
 #'
 #' @return A named list suitable for use as the \code{input} argument to
 #'   \code{\link{fit_wham}}. For fitted models created before preparation
@@ -362,15 +362,12 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 #' @seealso \code{\link{prepare_wham_input}}, \code{\link{fit_wham}}
 #'
 #' @export
-prepare_wham_input_from_fit <- function(fit_RDS = NULL) {
-  if (length(fit_RDS) != 1L || !is.character(fit_RDS) || is.na(fit_RDS) ||
-      !file.exists(fit_RDS)) {
-    stop("Provide fit_RDS, an RDS file containing a fitted WHAM model.")
+prepare_wham_input_from_fit <- function(fit = NULL) {
+  if (is.null(fit)) {
+    stop("Provide a fitted WHAM model object.")
   }
-
-  fit <- readRDS(fit_RDS)
   if (!is.list(fit) || is.null(fit$input)) {
-    stop("The RDS file does not contain a fitted WHAM model with an $input component.")
+    stop("The fitted WHAM model does not contain an $input component.")
   }
   old_input <- fit$input
   if (!is.list(old_input)) {
