@@ -345,6 +345,81 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 }
 
 
+#' Refit a WHAM model from a fitted model object
+#'
+#' Rebuilds the input from a fitted WHAM model with \code{\link{prepare_wham_input_from_fit}},
+#' refits it using the \code{\link{fit_wham}} options recorded in \code{fit$call}
+#' (e.g. \code{do.sdrep}, \code{do.retro}, \code{do.osa}, \code{do.brps}), and compares
+#' the parameter estimates and negative log-likelihood of the original and refitted models.
+#'
+#' For each parameter, the difference between the refit and original estimate is divided
+#' by the original standard error (from \code{fit$sdrep}) to give a z-like value. Parameters
+#' with \eqn{|z| > 1.96} are flagged. This is a descriptive check, not a formal test, because
+#' both fits use the same data; flags are expected to be rare if the refit is reproducible.
+#' Parameters are flagged only when standard errors are available.
+#'
+#' @param fit a fitted WHAM model object containing \code{$input}, \code{$opt}, and \code{$call}
+#'
+#' @return The refitted WHAM model object, returned invisibly. A comparison table and the
+#'   flagged parameters are printed to the console.
+#'
+#' @seealso \code{\link{prepare_wham_input_from_fit}}, \code{\link{fit_wham}}
+#'
+#' @export
+refit_wham <- function(fit = NULL) {
+  if (is.null(fit) || is.null(fit$opt$par)) {
+    stop("Provide a fitted WHAM model object.")
+  }
+
+  input <- prepare_wham_input_from_fit(fit)
+
+  fit_args <- as.list(fit$call)[-1]
+  fit_args$input <- NULL
+  fit_args <- lapply(fit_args, eval, envir = baseenv())
+  refit <- do.call(fit_wham, c(list(input = input), fit_args))
+
+  est_fit <- fit$opt$par
+  est_refit <- refit$opt$par
+  if (length(est_fit) != length(est_refit)) {
+    stop("The original and refitted models have different numbers of parameters.")
+  }
+
+  se <- rep(NA_real_, length(est_fit))
+  cov_fixed <- fit$sdrep$cov.fixed
+  if (!is.null(cov_fixed) && nrow(cov_fixed) == length(est_fit)) {
+    se <- sqrt(diag(cov_fixed))
+  }
+
+  fit_comparison <- data.frame(
+    nll_original = fit$opt$objective,
+    nll_refit = refit$opt$objective,
+    nll_diff = refit$opt$objective - fit$opt$objective,
+    max_abs_par_diff = max(abs(est_refit - est_fit)),
+    conv_original = fit$opt$convergence,
+    conv_refit = refit$opt$convergence
+  )
+
+  param_check <- data.frame(
+    parameter = names(est_fit),
+    estimate_fit = est_fit,
+    estimate_refit = est_refit,
+    diff = est_refit - est_fit,
+    se_fit = se,
+    z = (est_refit - est_fit) / se
+  )
+  param_check$significant <- !is.na(param_check$z) & abs(param_check$z) > 1.96
+
+  print(fit_comparison)
+  n_sig <- sum(param_check$significant)
+  message(
+    n_sig, " of ", nrow(param_check), " parameters flagged with |z| > 1.96",
+    if (all(is.na(se))) " (no standard errors available, so no parameters could be checked)" else ""
+  )
+  if (n_sig > 0) print(param_check[param_check$significant, ], row.names = FALSE)
+
+  invisible(refit)
+}
+
 #' Prepare input data and parameters from a fitted WHAM model
 #'
 #' Rebuilds the input from a fitted WHAM model using the preparation options
@@ -405,14 +480,28 @@ prepare_wham_input_from_fit <- function(fit = NULL) {
 
   # The names of these options have changed over time. Keep this translation
   # here rather than changing the names used by the component setters.
-  args <- options[c(
-    "basic_info", "catch", "index", "waa", "NAA", "q",
-    "selectivity", "age_comp", "F", "M", "move", "L", "ecov"
-  )]
-  names(args)[names(args) == "catch"] <- "catch_info"
-  names(args)[names(args) == "index"] <- "index_info"
-  names(args)[names(args) == "NAA"] <- "NAA_re"
-  names(args)[names(args) == "q"] <- "catchability"
+  # Stored option names vary across versions (e.g. "NAA" vs "NAA_re"), so take
+  # the first candidate name present in this fit.
+  option_names <- names(options)
+  pick <- function(...) {
+    hits <- intersect(c(...), option_names)
+    if (length(hits)) options[[hits[1]]] else NULL
+  }
+  args <- list(
+    basic_info = pick("basic_info"),
+    catch_info = pick("catch_info", "catch"),
+    index_info = pick("index_info", "index"),
+    waa = pick("waa"),
+    NAA_re = pick("NAA_re", "NAA"),
+    catchability = pick("catchability", "q"),
+    selectivity = pick("selectivity"),
+    age_comp = pick("age_comp"),
+    F = pick("F"),
+    M = pick("M"),
+    move = pick("move"),
+    L = pick("L"),
+    ecov = pick("ecov")
+  )
 
   # WAA options were historically stored separately from basic_info, while
   # prepare_wham_input receives them through basic_info.
