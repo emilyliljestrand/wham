@@ -1,0 +1,14 @@
+{
+  "permission": {
+    "bash": {
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' status *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' log *": "allow"
+    },
+    "executeCode": {
+      "*": "allow"
+    },
+    "edit": {
+      "*/NAMESPACE": "allow"
+    }
+  }
+}
