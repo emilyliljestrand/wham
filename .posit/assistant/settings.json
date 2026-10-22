@@ -2,13 +2,32 @@
   "permission": {
     "bash": {
       "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' status *": "allow",
-      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' log *": "allow"
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' log *": "allow",
+      "git grep *": "allow",
+      "head *": "allow",
+      "git status *": "allow",
+      "git ls-files *": "allow",
+      "cut *": "allow",
+      "sort *": "allow",
+      "uniq *": "allow",
+      "air *": "allow",
+      "git -C \"C:/Users/emily.liljestrand/Documents/GitHub/wham\" log *": "allow",
+      "git -C \"C:/Users/emily.liljestrand/Documents/GitHub/wham\" show *": "allow",
+      "sed *": "allow",
+      "Rscript *": "allow",
+      "where *": "allow",
+      "exit *": "allow",
+      "\"C:/Users/emily.liljestrand/.positron/extensions/posit.air-vscode-0.30.0/bundled/bin/air.exe\" *": "allow",
+      "git add *": "allow",
+      "git commit *": "allow"
     },
     "executeCode": {
       "*": "allow"
     },
     "edit": {
-      "*/NAMESPACE": "allow"
+      "*/NAMESPACE": "allow",
+      "*.R": "allow",
+      "*.md": "allow"
     }
   }
 }

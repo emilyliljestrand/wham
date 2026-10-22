@@ -14,3 +14,4 @@ noaa_docs
 .vscode
 src-i386
 /src/unused.hpp
+/oldfitobjects/*
