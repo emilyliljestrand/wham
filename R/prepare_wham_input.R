@@ -361,10 +361,14 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 #' Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
 #' input structure while retaining fitted values, parameter mappings, observations,
 #' bias correction, and correlation transforms. Legacy environmental effects,
-#' selectivity or mortality random effects, weight-based mortality, decoupled
-#' recruitment, steepness, and stored projections are not yet supported and produce
+#' selectivity or mortality random effects, weight-based mortality,
+#' steepness, and stored projections are not yet supported and produce
 #' an error rather than silently changing the model. Parameter comparisons use the
 #' original parameterization even when migration changes parameter names or order.
+#' Recruitment decoupling is recovered from stored options or data flags, then
+#' from active recruitment correlation parameters, defaulting to coupled when
+#' no information is available. Legacy decoupled correlations and variances are
+#' converted to the current parameterization.
 #'
 #' @param fit a fitted WHAM model object containing \code{$input} and \code{$opt}.
 #'   Older fits without a usable \code{$call} are refit using WHAM defaults.
@@ -382,7 +386,7 @@ refit_wham <- function(fit = NULL) {
 
 	legacy <- is.null(fit$input$data$n_stocks) && !is.null(fit$input$data$n_NAA_sigma)
 	input <- if (legacy) migrate_legacy_refit_input(fit) else prepare_wham_input_from_fit(fit)
-	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- 0L
+	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- as.integer(refit_decouple_recruitment(fit))
 
 	if (is.null(input$data$years_use)) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L
@@ -433,6 +437,14 @@ refit_wham <- function(fit = NULL) {
 		pars$F_devs <- pars$F_pars[-1, , drop = FALSE]
 		pars$M_a <- as.vector(pars$Mpars)[seq_along(fit$input$par$M_a)]
 		pointers <- fit$input$data$NAA_sigma_pointers
+		if (refit_decouple_recruitment(fit)) {
+			rho <- tanh(as.vector(pars$trans_NAA_rho) / 2)
+			if (fit$input$data$n_NAA_sigma > 1) {
+				pars$log_NAA_sigma[1] <- pars$log_NAA_sigma[1] + 0.5 * log1p(-rho[1]^2)
+				pars$log_NAA_sigma[-1] <- pars$log_NAA_sigma[-1] - 0.5 * log1p(-rho[2]^2) + 0.5 * log1p(-rho[3]^2)
+			}
+			pars$trans_NAA_rho[] <- as.vector(pars$trans_NAA_rho)[c(1L, 3L, 2L)]
+		}
 		pars$log_NAA_sigma <- as.vector(pars$log_NAA_sigma)[
 			match(seq_along(fit$input$par$log_NAA_sigma), pointers)
 		]
@@ -491,20 +503,45 @@ refit_wham <- function(fit = NULL) {
   invisible(refit)
 }
 
+refit_decouple_recruitment <- function(fit) {
+	input <- fit$input
+	options <- input$options
+	NAA_re <- options[["NAA_re"]]
+	if (is.null(NAA_re)) NAA_re <- options[["NAA"]]
+	flags <- list(
+		NAA_re$decouple_recruitment,
+		input$data[["decouple_recruitment", exact = TRUE]],
+		input$data[["decouple_rec", exact = TRUE]]
+	)
+	for (flag in flags) {
+		if (length(flag) == 1L && !is.na(flag)) return(isTRUE(as.logical(flag)))
+	}
+
+	mapping <- input$map$trans_NAA_rho
+	if (!is.null(mapping)) {
+		dimensions <- dim(input$par$trans_NAA_rho)
+		if (is.null(dimensions)) dimensions <- c(1L, 1L, length(mapping))
+		if (tail(dimensions, 1L) == 3L) {
+			active <- array(!is.na(mapping), dim = c(prod(head(dimensions, -1L)), 3L))
+			return(any(active[, 3L]))
+		}
+		return(FALSE)
+	}
+	n_stocks <- input$data$n_stocks
+	if (is.null(n_stocks)) n_stocks <- 1L
+	n_stocks == 1L && sum(names(fit$opt$par) == "trans_NAA_rho") == 3L
+}
+
 migrate_legacy_refit_input <- function(fit) {
 	old <- fit$input
 	data <- old$data
-	decouple_rec <- data[["decouple_rec", exact = TRUE]]
-	if (is.null(decouple_rec)) decouple_rec <- data[["decouple_recruitment", exact = TRUE]]
-	if (is.null(decouple_rec)) decouple_rec <- 0L
-	data$decouple_rec <- decouple_rec
+	data$decouple_rec <- as.integer(refit_decouple_recruitment(fit))
 	unsupported <- character()
 	if (is.null(old$asap3$n_ages)) unsupported <- c(unsupported, "missing single-stock ASAP3 data")
 	if (any(data$Ecov_model != 0)) unsupported <- c(unsupported, "environmental covariates")
 	if (any(data$selblock_models_re != 1)) unsupported <- c(unsupported, "selectivity random effects")
 	if (any(data$M_re_model != 1)) unsupported <- c(unsupported, "mortality random effects")
 	if (data$M_model == 3) unsupported <- c(unsupported, "weight-based mortality")
-	if (isTRUE(data$decouple_rec == 1)) unsupported <- c(unsupported, "decoupled recruitment")
 	if (isTRUE(data$use_steepness == 1)) unsupported <- c(unsupported, "steepness parameterization")
 	if (isTRUE(data$do_proj == 1)) unsupported <- c(unsupported, "stored projections")
 	if (length(unsupported)) {
@@ -515,7 +552,7 @@ migrate_legacy_refit_input <- function(fit) {
 	input <- prepare_wham_input(
 		asap3 = list(list(dat = asap3)), model_name = old$model_name,
 		recruit_model = data$recruit_model,
-		NAA_re = list(decouple_recruitment = FALSE)
+		NAA_re = list(decouple_recruitment = as.logical(data$decouple_rec))
 	)
 	for (field in intersect(names(data), names(input$data))) {
 		value <- data[[field]]
@@ -580,6 +617,16 @@ migrate_legacy_refit_input <- function(fit) {
 	if (data$n_NAA_sigma > 0) transfer("log_NAA_sigma", indices = pointers)
 	transfer("Mpars", "M_a", if (data$M_model == 1) rep(1L, data$n_ages) else seq_len(data$n_ages))
 	input$par$trans_NAA_rho[] <- 2 * pars$trans_NAA_rho
+	if (data$decouple_rec == 1) {
+		input$par$trans_NAA_rho[] <- 2 * pars$trans_NAA_rho[c(1L, 3L, 2L)]
+		mapping <- input$map$trans_NAA_rho
+		input$map$trans_NAA_rho <- factor(as.character(mapping[c(1L, 3L, 2L)]), levels = levels(mapping))
+		if (data$n_NAA_sigma > 1) {
+			rho <- tanh(pars$trans_NAA_rho)
+			input$par$log_NAA_sigma[1] <- input$par$log_NAA_sigma[1] - 0.5 * log1p(-rho[1]^2)
+			input$par$log_NAA_sigma[-1] <- input$par$log_NAA_sigma[-1] + 0.5 * log1p(-rho[3]^2) - 0.5 * log1p(-rho[2]^2)
+		}
+	}
 	input$par$q_repars[, 2] <- 2 * pars$q_repars[, 2]
 	input$par$sel_repars[, 2:3] <- 2 * pars$sel_repars[, 2:3]
 	input$par$M_repars[1, 1, 2:3] <- 2 * pars$M_repars[2:3]
@@ -683,7 +730,7 @@ prepare_wham_input_from_fit <- function(fit = NULL) {
 
 	if (is.null(args$NAA_re$decouple_recruitment)) {
 		if (is.null(args$NAA_re)) args$NAA_re <- list()
-		args$NAA_re$decouple_recruitment <- FALSE
+		args$NAA_re$decouple_recruitment <- refit_decouple_recruitment(fit)
 	}
 
   # WAA options were historically stored separately from basic_info, while

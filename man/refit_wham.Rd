@@ -30,10 +30,14 @@ Parameters are flagged only when standard errors are available.
 Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
 input structure while retaining fitted values, parameter mappings, observations,
 bias correction, and correlation transforms. Legacy environmental effects,
-selectivity or mortality random effects, weight-based mortality, decoupled
-recruitment, steepness, and stored projections are not yet supported and produce
+selectivity or mortality random effects, weight-based mortality,
+steepness, and stored projections are not yet supported and produce
 an error rather than silently changing the model. Parameter comparisons use the
 original parameterization even when migration changes parameter names or order.
+Recruitment decoupling is recovered from stored options or data flags, then
+from active recruitment correlation parameters, defaulting to coupled when
+no information is available. Legacy decoupled correlations and variances are
+converted to the current parameterization.
 }
 \seealso{
 \code{\link{prepare_wham_input_from_fit}}, \code{\link{fit_wham}}
