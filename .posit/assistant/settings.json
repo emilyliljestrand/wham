@@ -19,7 +19,9 @@
       "exit *": "allow",
       "\"C:/Users/emily.liljestrand/.positron/extensions/posit.air-vscode-0.30.0/bundled/bin/air.exe\" *": "allow",
       "git add *": "allow",
-      "git commit *": "allow"
+      "git commit *": "allow",
+      "git show *": "allow",
+      "awk *": "allow"
     },
     "executeCode": {
       "*": "allow"
@@ -28,6 +30,10 @@
       "*/NAMESPACE": "allow",
       "*.R": "allow",
       "*.md": "allow"
+    },
+    "webfetch": {
+      "https://github.com/*": "allow",
+      "https://raw.githubusercontent.com/*": "allow"
     }
   }
 }
