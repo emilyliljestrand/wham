@@ -373,9 +373,34 @@ refit_wham <- function(fit = NULL) {
 
   input <- prepare_wham_input_from_fit(fit)
 
+  if (!is.call(fit$call)) {
+    stop("The fitted model does not contain a usable $call component.")
+  }
+
   fit_args <- as.list(fit$call)[-1]
   fit_args$input <- NULL
-  fit_args <- lapply(fit_args, eval, envir = baseenv())
+
+  # A recorded call can contain symbols for options supplied by the caller.
+  # Resolve those in the refit's calling environment before falling back to
+  # base constants; evaluating only in baseenv() breaks otherwise valid calls.
+  caller_env <- parent.frame()
+  fit_args <- lapply(fit_args, function(arg) {
+    if (!is.language(arg)) return(arg)
+    tryCatch(
+      eval(arg, envir = caller_env),
+      error = function(error) eval(arg, envir = baseenv())
+    )
+  })
+
+  # Older fits (including <= 1.0.9) may not retain the original fit options.
+  # The presence of peels is the only reliable indication that a retrospective
+  # was completed, but do not override an explicit value in the saved call.
+  if (is.null(fit_args$do.retro)) {
+    fit_args$do.retro <- !is.null(fit$peels)
+  }
+  if (isTRUE(fit_args$do.retro) && is.null(fit_args$n.peels) && !is.null(fit$peels)) {
+    fit_args$n.peels <- length(fit$peels)
+  }
   refit <- do.call(fit_wham, c(list(input = input), fit_args))
 
   est_fit <- fit$opt$par
