@@ -358,6 +358,14 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 #' both fits use the same data; flags are expected to be rare if the refit is reproducible.
 #' Parameters are flagged only when standard errors are available.
 #'
+#' Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
+#' input structure while retaining fitted values, parameter mappings, observations,
+#' bias correction, and correlation transforms. Legacy environmental effects,
+#' selectivity or mortality random effects, weight-based mortality, decoupled
+#' recruitment, steepness, and stored projections are not yet supported and produce
+#' an error rather than silently changing the model. Parameter comparisons use the
+#' original parameterization even when migration changes parameter names or order.
+#'
 #' @param fit a fitted WHAM model object containing \code{$input} and \code{$opt}.
 #'   Older fits without a usable \code{$call} are refit using WHAM defaults.
 #'
@@ -372,7 +380,12 @@ refit_wham <- function(fit = NULL) {
     stop("Provide a fitted WHAM model object.")
   }
 
-  input <- prepare_wham_input_from_fit(fit)
+	legacy <- is.null(fit$input$data$n_stocks) && !is.null(fit$input$data$n_NAA_sigma)
+	input <- if (legacy) migrate_legacy_refit_input(fit) else prepare_wham_input_from_fit(fit)
+
+	if (is.null(input$data$years_use)) {
+		input$data$years_use <- seq_len(input$data$n_years_model) - 1L
+	}
 
   if (is.call(fit$call)) {
     fit_args <- as.list(fit$call)[-1]
@@ -408,8 +421,37 @@ refit_wham <- function(fit = NULL) {
 
   est_fit <- fit$opt$par
   est_refit <- refit$opt$par
-  if (length(est_fit) != length(est_refit)) {
-    stop("The original and refitted models have different numbers of parameters.")
+	if (length(est_fit) != length(est_refit)) {
+		stop("The original and refitted models have different numbers of parameters.")
+	}
+	if (legacy) {
+		est_refit <- est_fit
+		pars <- refit$parList
+		pars$log_N1_pars <- as.vector(pars$log_N1)[seq_along(fit$input$par$log_N1_pars)]
+		pars$log_F1 <- pars$F_pars[1, ]
+		pars$F_devs <- pars$F_pars[-1, , drop = FALSE]
+		pars$M_a <- as.vector(pars$Mpars)[seq_along(fit$input$par$M_a)]
+		pointers <- fit$input$data$NAA_sigma_pointers
+		pars$log_NAA_sigma <- as.vector(pars$log_NAA_sigma)[
+			match(seq_along(fit$input$par$log_NAA_sigma), pointers)
+		]
+		pars$trans_NAA_rho <- as.vector(pars$trans_NAA_rho) / 2
+		pars$q_repars[, 2] <- pars$q_repars[, 2] / 2
+		pars$sel_repars[, 2:3] <- pars$sel_repars[, 2:3] / 2
+		pars$M_repars <- as.vector(pars$M_repars)
+		pars$M_repars[2:3] <- pars$M_repars[2:3] / 2
+		for (parameter in unique(names(est_fit))) {
+			values <- as.vector(pars[[parameter]])
+			mapping <- fit$input$map[[parameter]]
+			if (!is.null(mapping)) {
+				values <- values[match(levels(mapping), as.character(mapping))]
+			}
+			positions <- which(names(est_fit) == parameter)
+			if (length(values) < length(positions)) {
+				stop("Could not compare migrated parameter: ", parameter)
+			}
+			est_refit[positions] <- values[seq_along(positions)]
+		}
   }
 
   se <- rep(NA_real_, length(est_fit))
@@ -446,6 +488,108 @@ refit_wham <- function(fit = NULL) {
   if (n_sig > 0) print(param_check[param_check$significant, ], row.names = FALSE)
 
   invisible(refit)
+}
+
+migrate_legacy_refit_input <- function(fit) {
+	old <- fit$input
+	data <- old$data
+	unsupported <- character()
+	if (is.null(old$asap3$n_ages)) unsupported <- c(unsupported, "missing single-stock ASAP3 data")
+	if (any(data$Ecov_model != 0)) unsupported <- c(unsupported, "environmental covariates")
+	if (any(data$selblock_models_re != 1)) unsupported <- c(unsupported, "selectivity random effects")
+	if (any(data$M_re_model != 1)) unsupported <- c(unsupported, "mortality random effects")
+	if (data$M_model == 3) unsupported <- c(unsupported, "weight-based mortality")
+	if (isTRUE(data$decouple_rec == 1)) unsupported <- c(unsupported, "decoupled recruitment")
+	if (isTRUE(data$use_steepness == 1)) unsupported <- c(unsupported, "steepness parameterization")
+	if (isTRUE(data$do_proj == 1)) unsupported <- c(unsupported, "stored projections")
+	if (length(unsupported)) {
+		stop("Cannot safely migrate this legacy WHAM input: ", paste(unsupported, collapse = ", "), ".", call. = FALSE)
+	}
+
+	asap3 <- align_fitted_asap3_indices(old$asap3)
+	input <- prepare_wham_input(
+		asap3 = list(list(dat = asap3)), model_name = old$model_name,
+		recruit_model = data$recruit_model
+	)
+	for (field in intersect(names(data), names(input$data))) {
+		value <- data[[field]]
+		target <- input$data[[field]]
+		if (is.null(dim(target)) || is.data.frame(target) || field == "waa") {
+			input$data[[field]] <- value
+		} else if (length(value) == length(target)) {
+			target[] <- value
+			input$data[[field]] <- target
+		}
+	}
+	input$data$waa_pointer_indices <- data$waa_pointer_indices[seq_len(data$n_indices)]
+	input$data$waa_pointer_M <- data$waa_pointer_jan1
+	input$data$M_model <- 1L
+	input$data$selblock_models_re <- rep(0L, data$n_selblocks)
+	input$data$NAA_re_model <- min(data$n_NAA_sigma, 2L)
+	input$data$decouple_recruitment <- data$decouple_rec
+	input$data$use_alt_AR1 <- 0L
+	if (!is.null(data$static_FXSPR_init)) input$data$FXSPR_static_init <- data$static_FXSPR_init
+	if (!is.null(data$avg_years_ind)) {
+		for (field in grep("^avg_years_ind_", names(input$data), value = TRUE)) {
+			target <- input$data[[field]]
+			if (length(dim(target)) == 2) {
+				target[,] <- 0
+				target[seq_len(length(data$avg_years_ind) + 1L), ] <- c(length(data$avg_years_ind), data$avg_years_ind)
+			} else if (length(dim(target)) == 3) {
+				target[] <- 0
+				target[, , seq_len(length(data$avg_years_ind) + 1L)] <- rep(c(length(data$avg_years_ind), data$avg_years_ind), each = prod(dim(target)[1:2]))
+			}
+			input$data[[field]] <- target
+		}
+	}
+
+	pars <- old$par
+	if (!is.null(fit$parList)) pars[names(fit$parList)] <- fit$parList
+	transfer <- function(target, source = target, indices = seq_along(pars[[source]]), scale = 1) {
+		values <- pars[[source]][indices] * scale
+		if (length(values) != length(input$par[[target]])) {
+			stop("Cannot safely migrate legacy parameter dimensions: ", source, call. = FALSE)
+		}
+		input$par[[target]][] <<- values
+		mapping <- old$map[[source]]
+		if (is.null(mapping)) mapping <- factor(seq_along(pars[[source]]))
+		input$map[target] <<- list(factor(as.character(mapping[indices]), levels = levels(mapping)))
+	}
+	renamed <- c("log_N1_pars", "log_NAA_sigma", "mean_rec_pars", "F_devs", "log_F1", "M_a")
+	inactive <- c("selpars_re", "Ecov_beta", "Ecov_obs_sigma_par")
+	for (parameter in setdiff(names(pars), c(renamed, inactive))) {
+		if (parameter %in% names(input$par)) transfer(parameter)
+	}
+	for (parameter in c("log_N1", "mean_rec_pars")) {
+		source <- if (parameter == "log_N1") "log_N1_pars" else parameter
+		values <- pars[[source]]
+		input$par[[parameter]][seq_along(values)] <- values
+		mapping <- rep(NA_integer_, length(input$par[[parameter]]))
+		source_map <- old$map[[source]]
+		if (is.null(source_map)) source_map <- factor(seq_along(values))
+		mapping[seq_along(values)] <- as.integer(source_map)
+		input$map[[parameter]] <- factor(mapping)
+	}
+	pointers <- data$NAA_sigma_pointers
+	if (data$n_NAA_sigma > 0) transfer("log_NAA_sigma", indices = pointers)
+	transfer("Mpars", "M_a", if (data$M_model == 1) rep(1L, data$n_ages) else seq_len(data$n_ages))
+	input$par$trans_NAA_rho[] <- 2 * pars$trans_NAA_rho
+	input$par$q_repars[, 2] <- 2 * pars$q_repars[, 2]
+	input$par$sel_repars[, 2:3] <- 2 * pars$sel_repars[, 2:3]
+	input$par$M_repars[1, 1, 2:3] <- 2 * pars$M_repars[2:3]
+	input$par$F_pars[1, ] <- pars$log_F1
+	input$par$F_pars[-1, ] <- pars$F_devs
+	map_F <- matrix(NA_character_, data$n_years_model, data$n_fleets)
+	for (parameter in c("log_F1", "F_devs")) {
+		mapping <- old$map[[parameter]]
+		if (is.null(mapping)) mapping <- factor(seq_along(pars[[parameter]]))
+		values <- ifelse(is.na(mapping), NA_character_, paste(parameter, as.character(mapping)))
+		if (parameter == "log_F1") map_F[1, ] <- values else map_F[-1, ] <- values
+	}
+	input$map$F_pars <- factor(map_F, levels = unique(as.vector(map_F)[!is.na(map_F)]))
+	input$random <- old$random
+	input$options <- NULL
+	input
 }
 
 #' Prepare input data and parameters from a fitted WHAM model
