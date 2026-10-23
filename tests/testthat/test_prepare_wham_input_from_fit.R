@@ -19,6 +19,7 @@ test_that("missing recruitment decoupling option defaults to coupled", {
   )
   input <- prepare_wham_input(asap3)
   input$options$NAA_re$decouple_recruitment <- NULL
+  input$data$decouple_recruitment <- NULL
 
   rebuilt <- prepare_wham_input_from_fit(list(input = input))
 
@@ -30,6 +31,33 @@ test_that("invalid fitted model files produce an informative error", {
     prepare_wham_input_from_fit(list()),
     "does not contain an \\$input component"
   )
+})
+
+test_that("recruitment decoupling uses stored flags and active correlations", {
+  fit <- list(input = list(data = list(), par = list(trans_NAA_rho = numeric(3))))
+  expect_false(refit_decouple_recruitment(fit))
+  fit$opt$par <- setNames(numeric(3), rep("trans_NAA_rho", 3))
+  expect_true(refit_decouple_recruitment(fit))
+  fit$input$map$trans_NAA_rho <- factor(c(1L, 2L, NA_integer_))
+  expect_false(refit_decouple_recruitment(fit))
+  fit$input$map$trans_NAA_rho <- factor(1:3)
+  expect_true(refit_decouple_recruitment(fit))
+  fit$input$data$decouple_rec <- 0L
+  expect_false(refit_decouple_recruitment(fit))
+  fit$input$data$decouple_rec <- 1L
+  expect_true(refit_decouple_recruitment(fit))
+  fit$input$options$NAA_re$decouple_recruitment <- FALSE
+  expect_false(refit_decouple_recruitment(fit))
+})
+
+test_that("rebuilding preserves decoupling when preparation options omit it", {
+  asap3 <- read_asap3_dat(
+    file.path(system.file("extdata", package = "wham"), "ex1_SNEMAYT.dat")
+  )
+  input <- prepare_wham_input(asap3)
+  input$options$NAA_re$decouple_recruitment <- NULL
+  input$data$decouple_recruitment <- 1L
+  expect_identical(prepare_wham_input_from_fit(list(input = input))$data$decouple_recruitment, 1L)
 })
 
 test_that("models without options return their stored input with a warning", {
@@ -103,7 +131,7 @@ test_that("unsupported legacy configurations are rejected before rebuilding", {
   )
   unsupported <- list(
     Ecov_model = 1, selblock_models_re = 2, M_re_model = 2,
-    M_model = 3, decouple_rec = 1, use_steepness = 1, do_proj = 1
+    M_model = 3, use_steepness = 1, do_proj = 1
   )
   for (field in names(unsupported)) {
     legacy_input <- input
@@ -147,4 +175,38 @@ test_that("legacy Butterfish migration preserves the likelihood and estimates", 
   expect_equal(result$opt$convergence, 0)
   expect_equal(as.numeric(result$opt$objective), as.numeric(fit$opt$objective), tolerance = 1e-8)
   expect_true(any(grepl("max_abs_par_diff", output)))
+})
+
+test_that("legacy decoupled Cod migration preserves the likelihood", {
+  fit_file <- test_path("..", "..", "oldfitobjects", "GBK_Cod_2024MTfit.rds")
+  skip_if_not(file.exists(fit_file), "Local decoupled fit is unavailable")
+  fit <- readRDS(fit_file)
+  original_input <- fit$input
+  input <- suppressMessages(migrate_legacy_refit_input(fit))
+  expect_identical(fit$input, original_input)
+  expect_identical(input$data$decouple_recruitment, 1L)
+  expect_equal(as.vector(input$par$trans_NAA_rho), 2 * fit$parList$trans_NAA_rho[c(1L, 3L, 2L)])
+
+  model <- TMB::MakeADFun(
+    input$data, input$par, DLL = "wham", random = input$random,
+    map = input$map, silent = TRUE
+  )
+  expect_equal(as.numeric(model$fn(model$par)), as.numeric(fit$opt$objective), tolerance = 1e-8)
+
+  refit <- refit_wham
+  environment(refit) <- list2env(list(
+    fit_wham = function(input, ...) list(input = input, opt = fit$opt, parList = input$par)
+  ), parent = environment(refit_wham))
+  expect_message(
+    output <- capture.output(result <- suppressMessages(refit(fit))),
+    NA
+  )
+  expect_identical(result$input$data$decouple_recruitment, 1L)
+  expect_true(any(grepl("max_abs_par_diff", output)))
+
+  fit$input$data$decouple_rec <- NULL
+  inferred <- suppressMessages(migrate_legacy_refit_input(fit))
+  expect_identical(inferred$data$decouple_recruitment, 1L)
+  expect_equal(inferred$par, input$par)
+  expect_identical(inferred$map, input$map)
 })
