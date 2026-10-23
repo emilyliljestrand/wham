@@ -494,6 +494,10 @@ refit_wham <- function(fit = NULL) {
 migrate_legacy_refit_input <- function(fit) {
 	old <- fit$input
 	data <- old$data
+	decouple_rec <- data[["decouple_rec", exact = TRUE]]
+	if (is.null(decouple_rec)) decouple_rec <- data[["decouple_recruitment", exact = TRUE]]
+	if (is.null(decouple_rec)) decouple_rec <- 0L
+	data$decouple_rec <- decouple_rec
 	unsupported <- character()
 	if (is.null(old$asap3$n_ages)) unsupported <- c(unsupported, "missing single-stock ASAP3 data")
 	if (any(data$Ecov_model != 0)) unsupported <- c(unsupported, "environmental covariates")
@@ -510,7 +514,8 @@ migrate_legacy_refit_input <- function(fit) {
 	asap3 <- align_fitted_asap3_indices(old$asap3)
 	input <- prepare_wham_input(
 		asap3 = list(list(dat = asap3)), model_name = old$model_name,
-		recruit_model = data$recruit_model
+		recruit_model = data$recruit_model,
+		NAA_re = list(decouple_recruitment = FALSE)
 	)
 	for (field in intersect(names(data), names(input$data))) {
 		value <- data[[field]]

@@ -64,11 +64,33 @@ test_that("refitting supplies missing year indices and preserves stored indices"
   expect_null(fit$input$data$years_use)
 
   fit$input$data$years_use <- c(0L, 2L)
+  fit$input$data$decouple_recruitment <- 1L
   expect_warning(
     capture.output(result <- refit(fit)),
     "does not contain preparation options"
   )
   expect_identical(result$input, fit$input)
+})
+
+test_that("legacy migration defaults missing recruitment information before rebuilding", {
+  input <- list(
+    asap3 = list(n_ages = 5L),
+    data = list(
+      Ecov_model = 0, selblock_models_re = 1, M_re_model = 1,
+      M_model = 2, use_steepness = 0, do_proj = 0,
+      decouple_rec_unused = 1L
+    )
+  )
+  migrate <- migrate_legacy_refit_input
+  environment(migrate) <- list2env(list(
+    prepare_wham_input = function(..., NAA_re) {
+      expect_identical(NAA_re$decouple_recruitment, FALSE)
+      stop("Reached input rebuilding")
+    }
+  ), parent = environment(migrate_legacy_refit_input))
+
+  expect_error(migrate(list(input = input)), "Reached input rebuilding")
+  expect_null(input$data[["decouple_rec", exact = TRUE]])
 })
 
 test_that("unsupported legacy configurations are rejected before rebuilding", {
