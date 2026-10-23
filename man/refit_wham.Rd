@@ -7,7 +7,8 @@
 refit_wham(fit = NULL)
 }
 \arguments{
-\item{fit}{a fitted WHAM model object containing \code{$input}, \code{$opt}, and \code{$call}}
+\item{fit}{a fitted WHAM model object containing \code{$input} and \code{$opt}.
+Older fits without a usable \code{$call} are refit using WHAM defaults.}
 }
 \value{
 The refitted WHAM model object, returned invisibly. A comparison table and the
@@ -25,6 +26,14 @@ by the original standard error (from \code{fit$sdrep}) to give a z-like value. P
 with \eqn{|z| > 1.96} are flagged. This is a descriptive check, not a formal test, because
 both fits use the same data; flags are expected to be rare if the refit is reproducible.
 Parameters are flagged only when standard errors are available.
+
+Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
+input structure while retaining fitted values, parameter mappings, observations,
+bias correction, and correlation transforms. Legacy environmental effects,
+selectivity or mortality random effects, weight-based mortality, decoupled
+recruitment, steepness, and stored projections are not yet supported and produce
+an error rather than silently changing the model. Parameter comparisons use the
+original parameterization even when migration changes parameter names or order.
 }
 \seealso{
 \code{\link{prepare_wham_input_from_fit}}, \code{\link{fit_wham}}
