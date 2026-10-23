@@ -386,6 +386,96 @@ refit_wham <- function(fit = NULL) {
 
 	legacy <- is.null(fit$input$data$n_stocks) && !is.null(fit$input$data$n_NAA_sigma)
 	input <- if (legacy) migrate_legacy_refit_input(fit) else prepare_wham_input_from_fit(fit)
+	if (is.null(input$data$selpars_re_index) && !is.null(input$data$selpars_est)) {
+		data <- input$data
+		pars <- input$par
+		if (!is.null(fit$parList)) pars[names(fit$parList)] <- fit$parList
+		width <- max(data$n_ages, 4L)
+		shape <- c(data$n_selblocks, data$n_years_model, width)
+		deviations <- array(0, shape)
+		deviation_map <- array(NA_character_, shape)
+		indices <- matrix(0L, data$n_selblocks, width)
+		counts <- rep(1L, data$n_selblocks)
+		means <- lower <- upper <- matrix(0, data$n_selblocks, width)
+		mean_map <- matrix(NA_character_, data$n_selblocks, width)
+		old_mean_map <- input$map$logit_selpars
+		if (is.null(old_mean_map)) old_mean_map <- factor(seq_along(pars$logit_selpars))
+		old_mean_map <- matrix(as.character(old_mean_map), nrow = data$n_selblocks)
+		old_deviation_map <- input$map$selpars_re
+		if (is.null(old_deviation_map)) old_deviation_map <- factor(seq_along(pars$selpars_re))
+		offset <- 0L
+		for (block in seq_len(data$n_selblocks)) {
+			model <- data$selblock_models[block]
+			columns <- if (model == 1L) seq_len(data$n_ages) else if (model == 3L) data$n_ages + 2L + seq_len(4L) else data$n_ages + seq_len(2L)
+			target <- seq_along(columns)
+			means[block, target] <- pars$logit_selpars[block, columns]
+			lower[block, target] <- data$selpars_lower[block, columns]
+			upper[block, target] <- data$selpars_upper[block, columns]
+			mean_map[block, target] <- old_mean_map[block, columns]
+			if (data$selblock_models_re[block] > 1L) {
+				years <- which(data$selblock_years[, block] == 1L)
+				active <- which(data$selpars_est[block, columns] == 1L)
+				count <- data$n_selpars_est[block]
+				if (length(active) != count || !length(years) || count < 1L) {
+					stop("Cannot safely migrate stored selectivity random effects for block ", block, ".")
+				}
+				positions <- offset + seq_len(length(years) * count)
+				if (max(positions) > length(pars$selpars_re)) stop("Invalid stored selectivity random-effect dimensions.")
+				values <- matrix(pars$selpars_re[positions], nrow = length(years))
+				mapping <- matrix(as.character(old_deviation_map[positions]), nrow = length(years))
+				if (data$selblock_models_re[block] == 4L) {
+					if (!identical(as.vector(mapping), rep(mapping[, 1L], count)) ||
+						!isTRUE(all.equal(as.vector(values), rep(values[, 1L], count)))) {
+						stop("Cannot safely migrate unshared annual selectivity random effects.")
+					}
+					counts[block] <- 1L
+					indices[block, active] <- 1L
+					deviations[block, years, 1L] <- values[, 1L]
+					deviation_map[block, years, 1L] <- mapping[, 1L]
+				} else {
+					counts[block] <- count
+					indices[block, active] <- seq_len(count)
+					deviations[block, years, seq_len(count)] <- values
+					deviation_map[block, years, seq_len(count)] <- mapping
+				}
+				offset <- offset + length(positions)
+			}
+		}
+		if (offset != length(pars$selpars_re)) stop("Invalid stored selectivity random-effect dimensions.")
+		input$par <- pars
+		input$par$logit_selpars <- means
+		input$par$selpars_re <- deviations
+		input$map$logit_selpars <- factor(mean_map, levels = levels(input$map$logit_selpars))
+		input$map$selpars_re <- factor(deviation_map, levels = levels(old_deviation_map))
+		input$data$selpars_lower <- lower
+		input$data$selpars_upper <- upper
+		input$data$selpars_re_index <- indices
+		input$data$n_selpars_re <- counts
+		input$data$selblock_models_re <- as.integer(data$selblock_models_re - 1L)
+		if (isTRUE(data$do_proj == 1L)) stop("Cannot safely migrate stored projections in this WHAM input.")
+		defaults <- set_proj(set_brp_static(input, list()))$data
+		missing <- setdiff(names(defaults), names(input$data))
+		input$data[missing] <- defaults[missing]
+		if (!is.matrix(input$data$proj_Fcatch)) input$data$proj_Fcatch <- matrix(input$data$proj_Fcatch)
+		if (is.null(input$data$bias_correct_brps)) input$data$bias_correct_brps <- 0L
+		if (is.null(input$data$do_simulate_period)) input$data$do_simulate_period <- c(1L, 1L)
+		if (!is.null(data$avg_years_ind)) {
+			for (field in grep("^avg_years_ind_", missing, value = TRUE)) {
+				target <- input$data[[field]]
+				year_axis <- length(dim(target))
+				if (year_axis == 2L) {
+					target[] <- 0
+					target[seq_len(length(data$avg_years_ind) + 1L), ] <- c(length(data$avg_years_ind), data$avg_years_ind)
+				} else {
+					dim(target) <- c(prod(dim(target)[-year_axis]), dim(target)[year_axis])
+					target[] <- 0
+					target[, seq_len(length(data$avg_years_ind) + 1L)] <- rep(c(length(data$avg_years_ind), data$avg_years_ind), each = nrow(target))
+					dim(target) <- dim(input$data[[field]])
+				}
+				input$data[[field]] <- target
+			}
+		}
+	}
 	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- as.integer(refit_decouple_recruitment(fit))
 
 	if (is.null(input$data$years_use)) {
