@@ -15,8 +15,8 @@ The refitted WHAM model object, returned invisibly. A comparison table and the
   flagged parameters are printed to the console.
 }
 \description{
-Rebuilds the input from a fitted WHAM model with \code{\link{prepare_wham_input_from_fit}},
-refits it using the \code{\link{fit_wham}} options recorded in \code{fit$call}
+Uses the stored input and fitted parameter values, preserving parameter mappings
+and manual input changes, and refits using the \code{\link{fit_wham}} options recorded in \code{fit$call}
 (e.g. \code{do.sdrep}, \code{do.retro}, \code{do.osa}, \code{do.brps}), and compares
 the parameter estimates and negative log-likelihood of the original and refitted models.
 }
@@ -26,6 +26,10 @@ by the original standard error (from \code{fit$sdrep}) to give a z-like value. P
 with \eqn{|z| > 1.96} are flagged. This is a descriptive check, not a formal test, because
 both fits use the same data; flags are expected to be rare if the refit is reproducible.
 Parameters are flagged only when standard errors are available.
+
+Older multi-stock selectivity inputs are migrated from packed vectors or arrays
+without rebuilding the model from preparation options. Mean-selectivity values,
+bounds, and mappings are retained, including shared annual random effects.
 
 Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
 input structure while retaining fitted values, parameter mappings, observations,
