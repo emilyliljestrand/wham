@@ -358,7 +358,8 @@ prepare_wham_input <- function(asap3 = NULL, model_name="WHAM for unnamed stock"
 #' both fits use the same data; flags are expected to be rare if the refit is reproducible.
 #' Parameters are flagged only when standard errors are available.
 #'
-#' @param fit a fitted WHAM model object containing \code{$input}, \code{$opt}, and \code{$call}
+#' @param fit a fitted WHAM model object containing \code{$input} and \code{$opt}.
+#'   Older fits without a usable \code{$call} are refit using WHAM defaults.
 #'
 #' @return The refitted WHAM model object, returned invisibly. A comparison table and the
 #'   flagged parameters are printed to the console.
@@ -373,12 +374,14 @@ refit_wham <- function(fit = NULL) {
 
   input <- prepare_wham_input_from_fit(fit)
 
-  if (!is.call(fit$call)) {
-    stop("The fitted model does not contain a usable $call component.")
+  if (is.call(fit$call)) {
+    fit_args <- as.list(fit$call)[-1]
+    fit_args$input <- NULL
+  } else {
+    # Old saved fits may not contain the call recorded by fit_wham().
+    # Continue with fit_wham() defaults and infer retrospective settings below.
+    fit_args <- list()
   }
-
-  fit_args <- as.list(fit$call)[-1]
-  fit_args$input <- NULL
 
   # A recorded call can contain symbols for options supplied by the caller.
   # Resolve those in the refit's calling environment before falling back to
@@ -573,6 +576,11 @@ prepare_wham_input_from_fit <- function(fit = NULL) {
       )
     }
   )
+
+  # Preserve structural fields required by TMB when rebuilding older fits.
+  if (is.null(rebuilt$data$years_use) && !is.null(old_input$data$years_use)) {
+    rebuilt$data$years_use <- old_input$data$years_use
+  }
   rebuilt
 }
 
