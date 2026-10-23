@@ -13,6 +13,18 @@ test_that("input is rebuilt from fitted model options", {
   )
 })
 
+test_that("missing recruitment decoupling option defaults to coupled", {
+  asap3 <- read_asap3_dat(
+    file.path(system.file("extdata", package = "wham"), "ex1_SNEMAYT.dat")
+  )
+  input <- prepare_wham_input(asap3)
+  input$options$NAA_re$decouple_recruitment <- NULL
+
+  rebuilt <- prepare_wham_input_from_fit(list(input = input))
+
+  expect_identical(rebuilt$data$decouple_recruitment, 0L)
+})
+
 test_that("invalid fitted model files produce an informative error", {
   expect_error(
     prepare_wham_input_from_fit(list()),
@@ -48,6 +60,7 @@ test_that("refitting supplies missing year indices and preserves stored indices"
     "does not contain preparation options"
   )
   expect_identical(result$input$data$years_use, 0:2)
+  expect_identical(result$input$data$decouple_recruitment, 0L)
   expect_null(fit$input$data$years_use)
 
   fit$input$data$years_use <- c(0L, 2L)

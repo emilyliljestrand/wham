@@ -382,6 +382,7 @@ refit_wham <- function(fit = NULL) {
 
 	legacy <- is.null(fit$input$data$n_stocks) && !is.null(fit$input$data$n_NAA_sigma)
 	input <- if (legacy) migrate_legacy_refit_input(fit) else prepare_wham_input_from_fit(fit)
+	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- 0L
 
 	if (is.null(input$data$years_use)) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L
@@ -674,6 +675,11 @@ prepare_wham_input_from_fit <- function(fit = NULL) {
     L = pick("L"),
     ecov = pick("ecov")
   )
+
+	if (is.null(args$NAA_re$decouple_recruitment)) {
+		if (is.null(args$NAA_re)) args$NAA_re <- list()
+		args$NAA_re$decouple_recruitment <- FALSE
+	}
 
   # WAA options were historically stored separately from basic_info, while
   # prepare_wham_input receives them through basic_info.
