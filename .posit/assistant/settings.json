@@ -34,6 +34,15 @@
     "webfetch": {
       "https://github.com/*": "allow",
       "https://raw.githubusercontent.com/*": "allow"
+    },
+    "external_directory": {
+      "c:\\Users\\emily.liljestrand\\Documents\\GitHub/*": "allow"
+    },
+    "task": {
+      "general": "allow"
+    },
+    "positronCommand": {
+      "positronPackages.getPackages": "allow"
     }
   }
 }

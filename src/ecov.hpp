@@ -1,3 +1,33 @@
+#include <limits>
+
+// Check dimensions before any latent-covariate or process-parameter access.
+template<class Type>
+void validate_Ecov_re(vector<int> Ecov_model, matrix<Type> Ecov_process_pars,
+  matrix<Type> Ecov_re, vector<int> Ecov_use_re){
+  int n_Ecov = Ecov_model.size();
+  if(Ecov_use_re.size() != n_Ecov)
+    Rf_error("Ecov_use_re must have one entry per Ecov");
+  for(int i = 0; i < n_Ecov; i++) if(Ecov_use_re(i) == 1 && Ecov_model(i) > 0){
+    int n_pars = Ecov_model(i) == 2 ? 3 : 2;
+    if(Ecov_re.cols() <= i || Ecov_process_pars.cols() <= i || Ecov_process_pars.rows() < n_pars)
+      Rf_error("Ecov random effects or process parameters have incompatible dimensions");
+  }
+}
+
+template<class Type>
+void validate_Ecov_years(vector<int> Ecov_model, matrix<Type> Ecov_re,
+  vector<int> Ecov_use_re, vector<int> years_use){
+  for(int y = 0; y < years_use.size(); y++){
+    if(years_use(y) < 0 || years_use(y) >= Ecov_re.rows())
+      Rf_error("Ecov years_use contains an out-of-bounds year");
+    if(y >= 2 && years_use(y) == 0){
+      for(int i = 0; i < Ecov_model.size(); i++)
+        if(Ecov_model(i) == 1 && Ecov_use_re(i) == 1)
+          Rf_error("Ecov random walk requires a preceding year");
+    }
+  }
+}
+
 template<class Type>
 matrix<Type> get_nll_Ecov(vector<int> Ecov_model, matrix<Type> Ecov_process_pars, matrix<Type> Ecov_re, vector<int> Ecov_use_re, 
   vector<int> years_use){
@@ -12,11 +42,14 @@ matrix<Type> get_nll_Ecov(vector<int> Ecov_model, matrix<Type> Ecov_process_pars
   using namespace density; // necessary to use AR1, SCALE, SEPARABLE
   int n_Ecov = Ecov_model.size();
   int n_y = years_use.size();
+  validate_Ecov_re(Ecov_model, Ecov_process_pars, Ecov_re, Ecov_use_re);
+  validate_Ecov_years(Ecov_model, Ecov_re, Ecov_use_re, years_use);
   //int n_y = Ecov_re.rows();
   matrix<Type> nll_Ecov(n_y, n_Ecov); // nll contribution each Ecov_re
   nll_Ecov.setZero();
 
   for(int i = 0; i < n_Ecov; i++){ // loop over Ecovs
+    if(n_y == 0 || (Ecov_model(i) == 1 && n_y < 2)) continue;
     // Ecov model option 1: RW
     if((Ecov_model(i) == 1) & (Ecov_use_re(i)==1)){
       Type Ecov_sig = exp(Ecov_process_pars(1,i)); // sd (sig_x in Eq1, pg 1262, Miller et al. 2016)
@@ -54,6 +87,10 @@ matrix<Type> get_Ecov(vector<int> Ecov_model, matrix<Type> Ecov_process_pars, ma
 
   int n_Ecov = Ecov_model.size();
   int n_y = Ecov_re.rows();
+  validate_Ecov_re(Ecov_model, Ecov_process_pars, Ecov_re, Ecov_use_re);
+  if(n_y == 0) for(int i = 0; i < n_Ecov; i++)
+    if(Ecov_model(i) == 1 && Ecov_use_re(i) == 1)
+      Rf_error("Ecov random walk requires at least one process year");
   matrix<Type> Ecov_x(n_y, n_Ecov); // 'true' estimated Ecov (x_t in Miller et al. 2016 CJFAS)
   Ecov_x.setZero();
 
@@ -89,10 +126,13 @@ matrix<Type> simulate_Ecov_re(vector<int> Ecov_model, matrix<Type> Ecov_process_
   using namespace density; // necessary to use AR1, SCALE, SEPARABLE
   int n_Ecov = Ecov_model.size();
   int n_y = years_use.size();
+  validate_Ecov_re(Ecov_model, Ecov_process_pars, Ecov_re, Ecov_use_re);
+  validate_Ecov_years(Ecov_model, Ecov_re, Ecov_use_re, years_use);
   //int n_y = Ecov_re.rows();
   matrix<Type> re_sim = Ecov_re;
 
   for(int i = 0; i < n_Ecov; i++){ // loop over Ecovs
+    if(n_y == 0 || (Ecov_model(i) == 1 && n_y < 2)) continue;
     if(Ecov_use_re(i)==1){
       // Ecov model option 1: RW
       if((Ecov_model(i) == 1) & (Ecov_use_re(i)==1)){
@@ -135,15 +175,41 @@ matrix<Type> get_Ecov_out(matrix<Type> Ecov_x, int n_years_model, int n_years_pr
   */
   //int n_effects = Ecov_beta.dim(0); // 2 + n_indices (recruitment, mortality and any catchabilities)
   int n_Ecov = Ecov_x.cols();
+  if(n_years_model <= 0 || n_years_proj < 0 ||
+     n_years_proj > std::numeric_limits<int>::max() - n_years_model)
+    Rf_error("Ecov output requires positive model years and nonnegative projection years");
+  if(ind_Ecov_out_start.size() != n_Ecov || ind_Ecov_out_end.size() != n_Ecov ||
+     (n_years_proj > 0 && proj_Ecov_opt.size() != n_Ecov))
+    Rf_error("Ecov output index and projection vectors must have one entry per Ecov");
+  for(int i = 0; i < n_Ecov; i++){
+    int start = ind_Ecov_out_start(i), end = ind_Ecov_out_end(i);
+    if(start < 0 || end < start || end >= Ecov_x.rows() ||
+       end - start != n_years_model - 1)
+      Rf_error("Ecov output endpoints must be in bounds and span n_years_model years");
+    if(n_years_proj > 0){
+      int opt = proj_Ecov_opt(i);
+      if(opt < 1 || opt > 4) Rf_error("Invalid Ecov projection option");
+      if(opt == 1 && n_years_proj > Ecov_x.rows() - 1 - end)
+        Rf_error("Ecov process does not cover projection years");
+      if(opt == 2){
+        if(avg_years.size() == 0) Rf_error("Ecov projection averaging requires years");
+        for(int y = 0; y < avg_years.size(); y++)
+          if(avg_years(y) < 0 || avg_years(y) >= Ecov_x.rows())
+            Rf_error("Ecov projection averaging year is out of bounds");
+      }
+      if(opt == 4 && (Ecov_use_proj.rows() < n_years_proj || Ecov_use_proj.cols() <= i))
+        Rf_error("Ecov_use_proj does not cover requested projection years and covariates");
+    }
+  }
   matrix<Type> Ecov_out(n_years_model + n_years_proj, n_Ecov); // Pop model uses Ecov_out(t) for processes in year t (Ecov_x shifted by lag and padded)
   Ecov_out.setZero(); // set Ecov_out = 0
   for(int i = 0; i < n_Ecov; i++){
       int ct = 0;
-      for(int y = ind_Ecov_out_start(i); y < ind_Ecov_out_end(i) + 1 + n_years_proj; y++){
+      for(ct = 0; ct < n_years_model + n_years_proj; ct++){
         if(ct < n_years_model) {
-          Ecov_out(ct,i) = Ecov_x(y,i);
+          Ecov_out(ct,i) = Ecov_x(ind_Ecov_out_start(i) + ct,i);
         } else { //projection year
-          if(proj_Ecov_opt(i) == 1) Ecov_out(ct,i) = Ecov_x(y,i); //continue Ecov process
+          if(proj_Ecov_opt(i) == 1) Ecov_out(ct,i) = Ecov_x(ind_Ecov_out_start(i) + ct,i); //continue Ecov process
           if(proj_Ecov_opt(i) == 2) { //average over avg_years
             // for(int ind = 0; ind < avg_years.size(); ind++) Ecov_out(ct,i) += Ecov_out(avg_years(ind),i)/Type(avg_years.size());
             for(int ind = 0; ind < avg_years.size(); ind++) Ecov_out(ct,i) += Ecov_x(avg_years(ind),i)/Type(avg_years.size());
@@ -151,7 +217,6 @@ matrix<Type> get_Ecov_out(matrix<Type> Ecov_x, int n_years_model, int n_years_pr
           if(proj_Ecov_opt(i) == 3) Ecov_out(ct,i) = Ecov_out(n_years_model-1,i); //use terminal year
           if(proj_Ecov_opt(i) == 4) Ecov_out(ct,i) = Ecov_use_proj(ct-n_years_model,i); //user-defined ecov
         }
-        ct++;
       }
   }
   return Ecov_out;

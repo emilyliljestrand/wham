@@ -11,6 +11,10 @@ wham 2.1.0.9012 (2026-10-14)
 * (2.1.0.9005) added greater tab structure to improve organization of plots in html files produced with plot_wham_output. [23150ef](https://github.com/timjmiller/wham/commit/23150efbd02aefea69000c958d7f3594744017fe)
 
 ### Bug fixes
+* `fit_wham` and `fit_peel` validate unsafe environmental and selectivity inputs before entering TMB; native bounds checks prevent known out-of-range accesses, and failed peels report their number and error.
+* `prepare_projection` pads annual environmental observation-error random effects along with projected covariate years.
+* `reduce_input` truncates environmental data, fitted starting values, and maps together even without saved preparation options; it preserves fishing-mortality maps and disables selectivity blocks lost in a peel.
+* `set_ecov` fixes annual observation-error random-effect dimensions, padding, initial values, and maps, preserves mixed fixed/estimated sigma options, and rejects nonconsecutive covariate years.
 * Fix refits changing the number of parameters when stored preparation options do not capture manual input changes. Migrate both packed and array selectivity random effects while preserving mean-selectivity mappings and parameter order.
 * (2.1.0.9012) fix some bugs in vignettes. [PR 101](https://github.com/timjmiller/wham/pull/101)
 * (2.1.0.9012) Change to minimize Eigen namespace usage per TMB issue 417. [e63ea63](https://github.com/timjmiller/wham/commit/e63ea63cad9a08acc67f74ac28cd385dd2220a77)

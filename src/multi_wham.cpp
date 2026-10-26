@@ -320,6 +320,13 @@ Type objective_function<Type>::operator() ()
   /////////////////////////////////////////
   // Environmental covariate observation model -------------------------------------
   //TODO: Ecov obs are not yet simulated in projection years!!!!!!!!
+  if(Ecov_obs_sigma_opt.size() != n_Ecov)
+    Rf_error("Ecov_obs_sigma_opt must have one entry per Ecov");
+  for(int i = 0; i < n_Ecov; i++) if(Ecov_obs_sigma_opt(i) == 4 && n_years_Ecov > 0){
+    if(Ecov_obs_logsigma_re.rows() < n_years_Ecov || Ecov_obs_logsigma_re.cols() <= i ||
+       Ecov_obs_sigma_par.rows() < 2 || Ecov_obs_sigma_par.cols() <= i)
+      Rf_error("Ecov observation sigma random effects and parameters have incompatible dimensions");
+  }
   matrix<Type> nll_Ecov_obs(n_years_Ecov, n_Ecov);
   nll_Ecov_obs.setZero();
   Type nll_Ecov_obs_sig = Type(0); // Ecov obs sigma random effects (opt = 4)
