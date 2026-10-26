@@ -405,6 +405,12 @@ refit_wham <- function(fit = NULL) {
 		if (length(old_deviation_map) != length(pars$selpars_re)) {
 			stop("Invalid stored selectivity random-effect dimensions.")
 		}
+			# Older models without selectivity RE store a fixed 1 x 1 placeholder.
+			if (all(data$selblock_models_re == 1L) &&
+				length(pars$selpars_re) == 1L && all(is.na(old_deviation_map))) {
+				pars$selpars_re <- numeric()
+				old_deviation_map <- factor(character(), levels = levels(old_deviation_map))
+			}
 		array_layout <- !is.null(dim(pars$selpars_re))
 		if (array_layout && !identical(as.integer(dim(pars$selpars_re)), as.integer(shape))) {
 			stop("Invalid stored selectivity random-effect dimensions.")
@@ -485,6 +491,62 @@ refit_wham <- function(fit = NULL) {
 		}
 	}
 	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- as.integer(refit_decouple_recruitment(fit))
+
+  # Historical single-region inputs stored inactive NAA parameters as matrices.
+  # Active old correlation transforms cannot be inferred from their ranks alone.
+  naa_matrices <- c(log_NAA_sigma = input$data$n_ages, trans_NAA_rho = 2L)
+  old_naa <- vapply(
+    names(naa_matrices),
+    function(parameter) {
+      value <- input$par[[parameter]]
+      !is.null(value) &&
+        is.matrix(value) &&
+        identical(
+          as.integer(dim(value)),
+          as.integer(c(input$data$n_stocks, naa_matrices[[parameter]]))
+        )
+    },
+    logical(1)
+  )
+  if (any(old_naa)) {
+    inactive <- length(input$data$NAA_re_model) > 0L &&
+      all(!is.na(input$data$NAA_re_model) & input$data$NAA_re_model == 0L)
+    for (parameter in names(naa_matrices)) {
+      value <- input$par[[parameter]]
+      if (is.null(value)) {
+        next
+      }
+      mapping <- input$map[[parameter]]
+      inactive <- inactive &&
+        !is.null(mapping) &&
+        length(mapping) == length(value) &&
+        all(is.na(mapping))
+    }
+    if (!isTRUE(input$data$n_regions == 1L) || !inactive) {
+      stop(
+        "Cannot safely migrate active or unsupported stored NAA matrices; legacy correlation transforms are not inferred."
+      )
+    }
+    if (old_naa[["log_NAA_sigma"]]) {
+      dim(input$par$log_NAA_sigma) <- c(
+        input$data$n_stocks,
+        1L,
+        input$data$n_ages
+      )
+    }
+    if (old_naa[["trans_NAA_rho"]]) {
+      input$par$trans_NAA_rho <- array(
+        c(as.vector(input$par$trans_NAA_rho), rep(0, input$data$n_stocks)),
+        c(input$data$n_stocks, 1L, 3L)
+      )
+      mapping <- input$map$trans_NAA_rho
+      input$map$trans_NAA_rho <- factor(
+        c(as.character(mapping), rep(NA_character_, input$data$n_stocks)),
+        levels = levels(mapping)
+      )
+    }
+  }
+
 
 	if (is.null(input$data$years_use)) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L

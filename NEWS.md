@@ -14,6 +14,8 @@ wham 2.1.0.9012 (2026-10-14)
 * `fit_wham` and `fit_peel` validate unsafe environmental and selectivity inputs before entering TMB; native bounds checks prevent known out-of-range accesses, and failed peels report their number and error.
 * `prepare_projection` pads annual environmental observation-error random effects along with projected covariate years.
 * `reduce_input` truncates environmental data, fitted starting values, and maps together even without saved preparation options; it preserves fishing-mortality maps and disables selectivity blocks lost in a peel.
+* `refit_wham` accepts fixed scalar or matrix selectivity placeholders in older models without selectivity random effects.
+* `refit_wham` migrates inactive historical NAA parameter matrices to current arrays; R and native dimension checks prevent out-of-bounds access that could terminate R even when NAA random effects are disabled.
 * `set_ecov` fixes annual observation-error random-effect dimensions, padding, initial values, and maps, preserves mixed fixed/estimated sigma options, and rejects nonconsecutive covariate years.
 * Fix refits changing the number of parameters when stored preparation options do not capture manual input changes. Migrate both packed and array selectivity random effects while preserving mean-selectivity mappings and parameter order.
 * (2.1.0.9012) fix some bugs in vignettes. [PR 101](https://github.com/timjmiller/wham/pull/101)

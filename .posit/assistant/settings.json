@@ -29,7 +29,8 @@
     "edit": {
       "*/NAMESPACE": "allow",
       "*.R": "allow",
-      "*.md": "allow"
+      "*.md": "allow",
+      "*.hpp": "allow"
     },
     "webfetch": {
       "https://github.com/*": "allow",

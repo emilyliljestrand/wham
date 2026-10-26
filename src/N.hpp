@@ -2,6 +2,12 @@
 template <class T>
 array<T> get_marginal_NAA_sigma(array<T> log_NAA_sigma, array<T> trans_NAA_rho, vector<int> NAA_re_model, int decouple_recruitment = 0){
 
+  if(log_NAA_sigma.dim.size() != 3 || trans_NAA_rho.dim.size() != 3)
+    Rf_error("NAA sigma and correlation parameters must be stock x region x parameter arrays");
+  if(log_NAA_sigma.dim(0) != trans_NAA_rho.dim(0) ||
+     log_NAA_sigma.dim(1) != trans_NAA_rho.dim(1) ||
+     trans_NAA_rho.dim(2) != 3 || NAA_re_model.size() != log_NAA_sigma.dim(0))
+    Rf_error("NAA sigma and correlation parameter dimensions are incompatible");
   int n_stocks = log_NAA_sigma.dim(0);
   int n_regions = log_NAA_sigma.dim(1);
   int n_ages = log_NAA_sigma.dim(2);

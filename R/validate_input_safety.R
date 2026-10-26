@@ -27,6 +27,8 @@ validate_input_safety <- function(input) {
   if (ny < 2L) {
     fail("at least two model years must remain.")
   }
+  shape(par$log_NAA_sigma, c(data$n_stocks, data$n_regions, data$n_ages), "log_NAA_sigma")
+  shape(par$trans_NAA_rho, c(data$n_stocks, data$n_regions, 3L), "trans_NAA_rho")
   for (field in names(input$map)) {
     mapping <- input$map[[field]]
     if (

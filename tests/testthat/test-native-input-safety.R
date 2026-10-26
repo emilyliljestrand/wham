@@ -27,6 +27,30 @@ native_safety_objective <- function(input, mapped = TRUE) {
   )
 }
 
+test_that("native objective rejects historical NAA matrix ranks safely", {
+  for (field in c("log_NAA_sigma", "trans_NAA_rho")) {
+    input <- native_safety_input()
+    input$par[[field]] <- matrix(input$par[[field]], nrow = 1L)
+    objective <- NULL
+    error <- tryCatch(
+      {
+        objective <- native_safety_objective(input, mapped = FALSE)
+        objective$fn(objective$par)
+      },
+      error = identity,
+      finally = {
+        if (!is.null(objective)) TMB::FreeADFun(objective)
+      }
+    )
+    expect_s3_class(error, "error")
+    expect_match(
+      conditionMessage(error),
+      "NAA sigma and correlation parameters must be",
+      fixed = TRUE
+    )
+  }
+})
+
 test_that("native objective guards malformed Ecov dimensions and endpoints", {
   input <- native_safety_input()
   malformed <- list(
