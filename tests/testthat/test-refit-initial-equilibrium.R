@@ -1,3 +1,44 @@
+test_that("RT refits preserve historical process scales and likelihood", {
+  path <- test_path("..", "..", "oldfitobjects", "BSB_2023RTfit.RDS")
+  skip_if_not(file.exists(path), "Local BSB RT fit is unavailable")
+  fit <- readRDS(path)
+  original_input <- fit$input
+  fit$call <- quote(fit_wham(
+    input = input,
+    do.retro = FALSE,
+    do.osa = FALSE,
+    do.sdrep = FALSE,
+    do.brps = FALSE,
+    MakeADFun.silent = TRUE
+  ))
+  capture.output(result <- suppressMessages(refit_wham(fit)))
+  expect_equal(
+    result$opt$objective,
+    fit$opt$objective,
+    tolerance = 1e-6,
+    scale = 1
+  )
+  expect_equal(result$input$data$N1_model, c(1, 1))
+  expect_equal(result$rep$N1, fit$rep$N1, tolerance = 1e-6)
+  expect_equal(result$rep$NAA, fit$rep$NAA, tolerance = 1e-6)
+  expect_equal(
+    result$parList$sel_repars[, 2:3] / 2,
+    fit$parList$sel_repars[, 2:3],
+    tolerance = 1e-6
+  )
+  rho <- tanh(result$parList$Ecov_process_pars[3, ] / 2)
+  expect_equal(
+    result$parList$Ecov_process_pars[2, ] - 0.5 * log1p(-rho^2),
+    fit$parList$Ecov_process_pars[2, ],
+    tolerance = 1e-6
+  )
+  expect_identical(fit$input, original_input)
+  scales <- refit_process_scales(result$input, result$rep)
+  expect_identical(scales$input, result$input)
+  expect_identical(scales$selectivity, FALSE)
+  expect_length(scales$ecov, 0)
+})
+
 test_that("Run4 refits preserve historical equilibrium likelihood and estimates", {
   path <- test_path("..", "..", "oldfitobjects", "BSB_2023Run4fit.RDS")
   skip_if_not(file.exists(path), "Local BSB Run4 fit is unavailable")

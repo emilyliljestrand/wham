@@ -552,6 +552,12 @@ refit_wham <- function(fit = NULL) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L
 	}
 
+  scales <- list(input = input, selectivity = FALSE, ecov = integer())
+  if (!legacy && !is.null(fit$input$data$selpars_est)) {
+    scales <- refit_process_scales(input, fit$rep)
+    input <- scales$input
+  }
+
   if (legacy || !is.null(fit$input$data$selpars_est)) {
     input <- refit_initial_equilibrium(input, fit$rep$N1)
   }
@@ -590,6 +596,26 @@ refit_wham <- function(fit = NULL) {
 
   est_fit <- fit$opt$par
   est_refit <- refit$opt$par
+  if (scales$selectivity || length(scales$ecov)) {
+    pars <- refit$parList
+    if (scales$selectivity) {
+      pars$sel_repars[, 2:3] <- pars$sel_repars[, 2:3] / 2
+    }
+    if (length(scales$ecov)) {
+      columns <- scales$ecov
+      rho <- tanh(pars$Ecov_process_pars[3, columns] / 2)
+      pars$Ecov_process_pars[2, columns] <- pars$Ecov_process_pars[2, columns] -
+        0.5 * log1p(-rho^2)
+    }
+    for (parameter in c("sel_repars", "Ecov_process_pars")) {
+      values <- as.vector(pars[[parameter]])
+      mapping <- input$map[[parameter]]
+      if (!is.null(mapping)) {
+        values <- values[match(levels(mapping), as.character(mapping))]
+      }
+      est_refit[names(est_refit) == parameter] <- values
+    }
+  }
 	if (length(est_fit) != length(est_refit)) {
 		stop("The original and refitted models have different numbers of parameters.")
 	}
@@ -665,6 +691,93 @@ refit_wham <- function(fit = NULL) {
   if (n_sig > 0) print(param_check[param_check$significant, ], row.names = FALSE)
 
   invisible(refit)
+}
+
+refit_process_scales <- function(input, stored_report) {
+  if (is.null(stored_report$nll_sel) && is.null(stored_report$nll_Ecov)) {
+    return(list(input = input, selectivity = FALSE, ecov = integer()))
+  }
+  report_at_parameters <- function(input) {
+    validate_input_safety(input)
+    model <- TMB::MakeADFun(
+      input$data,
+      input$par,
+      map = input$map,
+      DLL = "wham",
+      silent = TRUE
+    )
+    on.exit(TMB::FreeADFun(model))
+    model$fn(model$par)
+    model$report()
+  }
+  matches <- function(x, y) {
+    if (is.null(x)) {
+      return(all(is.finite(y) & y == 0))
+    }
+    isTRUE(all.equal(x, y, tolerance = 1e-8))
+  }
+  current <- report_at_parameters(input)
+  selectivity <- FALSE
+  ecov <- integer()
+  if (
+    !is.null(stored_report$nll_sel) &&
+      !matches(current$nll_sel, stored_report$nll_sel)
+  ) {
+    candidate <- input
+    candidate$par$sel_repars[, 2:3] <- candidate$par$sel_repars[, 2:3] * 2
+    if (
+      !matches(report_at_parameters(candidate)$nll_sel, stored_report$nll_sel)
+    ) {
+      stop("Cannot safely reproduce stored selectivity process likelihood.")
+    }
+    input <- candidate
+    selectivity <- TRUE
+  }
+  if (
+    !is.null(stored_report$nll_Ecov) &&
+      !matches(current$nll_Ecov, stored_report$nll_Ecov)
+  ) {
+    ecov <- which(input$data$Ecov_model == 2L & input$data$Ecov_use_re == 1L)
+    candidate <- input
+    rho <- tanh(input$par$Ecov_process_pars[3, ecov] / 2)
+    candidate$par$Ecov_process_pars[2, ecov] <- input$par$Ecov_process_pars[
+      2,
+      ecov
+    ] +
+      0.5 * log1p(-rho^2)
+    if (
+      !length(ecov) ||
+        !matches(
+          report_at_parameters(candidate)$nll_Ecov,
+          stored_report$nll_Ecov
+        )
+    ) {
+      stop("Cannot safely reproduce stored environmental process likelihood.")
+    }
+    mapping <- input$map$Ecov_process_pars
+    if (!is.null(mapping)) {
+      mapping <- matrix(
+        as.character(mapping),
+        nrow(input$par$Ecov_process_pars)
+      )
+      sigma <- mapping[2, ecov]
+      varying_rho <- !is.na(mapping[3, ecov])
+      if (
+        any(
+          varying_rho &
+            (is.na(sigma) |
+              duplicated(sigma) |
+              duplicated(sigma, fromLast = TRUE))
+        )
+      ) {
+        stop(
+          "Cannot safely migrate fixed or shared historical environmental AR1 scales."
+        )
+      }
+    }
+    input <- candidate
+  }
+  list(input = input, selectivity = selectivity, ecov = ecov)
 }
 
 refit_initial_equilibrium <- function(input, stored_N1) {
