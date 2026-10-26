@@ -552,6 +552,10 @@ refit_wham <- function(fit = NULL) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L
 	}
 
+  if (legacy || !is.null(fit$input$data$selpars_est)) {
+    input <- refit_initial_equilibrium(input, fit$rep$N1)
+  }
+
   if (is.call(fit$call)) {
     fit_args <- as.list(fit$call)[-1]
     fit_args$input <- NULL
@@ -661,6 +665,35 @@ refit_wham <- function(fit = NULL) {
   if (n_sig > 0) print(param_check[param_check$significant, ], row.names = FALSE)
 
   invisible(refit)
+}
+
+refit_initial_equilibrium <- function(input, stored_N1) {
+  stocks <- which(input$data$N1_model == 1L)
+  if (!length(stocks) || is.null(stored_N1)) return(input)
+  validate_input_safety(input)
+  initial_numbers <- function(input) {
+    model <- TMB::MakeADFun(
+      input$data, input$par, map = input$map, random = input$random,
+      DLL = "wham", silent = TRUE
+    )
+    on.exit(TMB::FreeADFun(model))
+    model$fn(model$par)
+    model$report()$N1
+  }
+  current <- initial_numbers(input)
+  historical <- input
+  historical$data$N1_model[stocks] <- -1L
+  old <- initial_numbers(historical)
+  for (stock in stocks) {
+    target <- stored_N1[stock, , , drop = FALSE]
+    if (isTRUE(all.equal(current[stock, , , drop = FALSE], target, tolerance = 1e-8))) next
+    if (!isTRUE(all.equal(old[stock, , , drop = FALSE], target, tolerance = 1e-8))) {
+      stop("Cannot safely reproduce stored initial equilibrium abundance for stock ", stock, ".")
+    }
+    # Preserve the historical likelihood, not just its starting abundance.
+    input$data$N1_model[stock] <- -1L
+  }
+  input
 }
 
 refit_decouple_recruitment <- function(fit) {

@@ -21,7 +21,14 @@
       "git add *": "allow",
       "git commit *": "allow",
       "git show *": "allow",
-      "awk *": "allow"
+      "awk *": "allow",
+      "grep *": "allow",
+      "/usr/bin/find *": "allow",
+      "ls *": "allow",
+      "'c:/Program Files/R/R-4.4.3/bin/Rscript.exe' *": "allow",
+      "'c:/Program Files/R/R-4.4.3/bin/x64/Rscript.exe' *": "allow",
+      "command *": "allow",
+      "git restore *": "allow"
     },
     "executeCode": {
       "*": "allow"
@@ -37,7 +44,9 @@
       "https://raw.githubusercontent.com/*": "allow"
     },
     "external_directory": {
-      "c:\\Users\\emily.liljestrand\\Documents\\GitHub/*": "allow"
+      "c:\\Users\\emily.liljestrand\\Documents\\GitHub/*": "allow",
+      "c:\\Program Files\\R/*": "allow",
+      "c:/Users/emily.liljestrand/.local/state/positron/logs/20261026T083817/window1/exthost/posit.assistant/tools/executeCode/*": "allow"
     },
     "task": {
       "general": "allow"
