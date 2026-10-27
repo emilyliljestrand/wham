@@ -492,8 +492,8 @@ refit_wham <- function(fit = NULL) {
 	}
 	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- as.integer(refit_decouple_recruitment(fit))
 
-  # Historical single-region inputs stored inactive NAA parameters as matrices.
-  # Active old correlation transforms cannot be inferred from their ranks alone.
+  # Zero, fixed correlations are invariant to historical transform conventions.
+  # Inactive placeholders can also be expanded across regions.
   naa_matrices <- c(log_NAA_sigma = input$data$n_ages, trans_NAA_rho = 2L)
   old_naa <- vapply(
     names(naa_matrices),
@@ -509,6 +509,7 @@ refit_wham <- function(fit = NULL) {
     logical(1)
   )
   if (any(old_naa)) {
+    valid_maps <- TRUE
     inactive <- length(input$data$NAA_re_model) > 0L &&
       all(!is.na(input$data$NAA_re_model) & input$data$NAA_re_model == 0L)
     for (parameter in names(naa_matrices)) {
@@ -517,36 +518,67 @@ refit_wham <- function(fit = NULL) {
         next
       }
       mapping <- input$map[[parameter]]
-      inactive <- inactive &&
+      valid_maps <- valid_maps &&
         !is.null(mapping) &&
-        length(mapping) == length(value) &&
-        all(is.na(mapping))
+        length(mapping) == length(value)
+      inactive <- inactive && !is.null(mapping) && all(is.na(mapping))
     }
-    if (!isTRUE(input$data$n_regions == 1L) || !inactive) {
+    independent <- isTRUE(input$data$n_regions == 1L) &&
+      length(input$data$NAA_re_model) == input$data$n_stocks &&
+      all(input$data$NAA_re_model %in% 0:2) &&
+      !is.null(input$par$trans_NAA_rho) &&
+      all(is.finite(input$par$trans_NAA_rho) & input$par$trans_NAA_rho == 0) &&
+      !is.null(input$map$trans_NAA_rho) &&
+      all(is.na(input$map$trans_NAA_rho))
+    if (!valid_maps || !(inactive || independent)) {
       stop(
         "Cannot safely migrate active or unsupported stored NAA matrices; legacy correlation transforms are not inferred."
       )
     }
+    expand_regions <- function(value) {
+      array(value, c(input$data$n_stocks, 1L, ncol(value)))[,
+        rep(1L, input$data$n_regions),
+        ,
+        drop = FALSE
+      ]
+    }
     if (old_naa[["log_NAA_sigma"]]) {
-      dim(input$par$log_NAA_sigma) <- c(
-        input$data$n_stocks,
-        1L,
-        input$data$n_ages
-      )
+      input$par$log_NAA_sigma <- expand_regions(input$par$log_NAA_sigma)
+      if (input$data$n_regions > 1L) {
+        mapping <- input$map$log_NAA_sigma
+        input$map$log_NAA_sigma <- factor(
+          rep(NA_character_, length(input$par$log_NAA_sigma)),
+          levels = levels(mapping)
+        )
+      }
     }
     if (old_naa[["trans_NAA_rho"]]) {
+      rho <- expand_regions(input$par$trans_NAA_rho)
+      extra <- input$data$n_stocks * input$data$n_regions
       input$par$trans_NAA_rho <- array(
-        c(as.vector(input$par$trans_NAA_rho), rep(0, input$data$n_stocks)),
-        c(input$data$n_stocks, 1L, 3L)
+        c(as.vector(rho), rep(0, extra)),
+        c(input$data$n_stocks, input$data$n_regions, 3L)
       )
       mapping <- input$map$trans_NAA_rho
       input$map$trans_NAA_rho <- factor(
-        c(as.character(mapping), rep(NA_character_, input$data$n_stocks)),
+        rep(NA_character_, length(input$par$trans_NAA_rho)),
         levels = levels(mapping)
       )
     }
   }
 
+
+  # Early no-movement inputs used a scalar instead of the region matrix.
+  if (
+    is.null(dim(input$data$mu_model)) &&
+      identical(as.numeric(input$data$mu_model), 1) &&
+      length(input$data$can_move) > 0L &&
+      all(is.finite(input$data$can_move) & input$data$can_move == 0)
+  ) {
+    input$data$mu_model <- matrix(
+      1L, input$data$n_regions, input$data$n_regions - 1L
+    )
+  }
 
 	if (is.null(input$data$years_use)) {
 		input$data$years_use <- seq_len(input$data$n_years_model) - 1L

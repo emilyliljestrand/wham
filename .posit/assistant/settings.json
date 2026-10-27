@@ -28,7 +28,10 @@
       "'c:/Program Files/R/R-4.4.3/bin/Rscript.exe' *": "allow",
       "'c:/Program Files/R/R-4.4.3/bin/x64/Rscript.exe' *": "allow",
       "command *": "allow",
-      "git restore *": "allow"
+      "git restore *": "allow",
+      "status=$? *": "allow",
+      "find *": "allow",
+      "python *": "allow"
     },
     "executeCode": {
       "*": "allow"
