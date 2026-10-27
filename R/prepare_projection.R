@@ -1,7 +1,9 @@
 #' Prepare input data and parameters to project an already fit WHAM model
 #'
-#' \code{prepare_projection} is an internal function called by \code{\link{project_wham}},
-#' which in turn is called by \code{\link{fit_wham}} if \code{do.proj = TRUE}.
+#' Prepares projection inputs for a fitted WHAM model. Called by
+#' \code{\link{project_wham}}, which in turn is called by
+#' \code{\link{fit_wham}} if \code{do.proj = TRUE}. Available for direct use
+#' when projection inputs need to be inspected or modified before fitting.
 #'
 #' @param model a previously fit wham model
 #' @param proj.opts a named list with the following components:

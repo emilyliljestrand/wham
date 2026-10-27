@@ -1,7 +1,8 @@
 #' Read WHAM fit
 #'
-#' Gets output from a fit WHAM model for plotting with other models.
-#' Internal function, called within \code{\link{compare_wham_models}}.
+#' Extracts output from a fitted WHAM model for plotting with other models.
+#' Called by \code{\link{compare_wham_models}} and available for direct use
+#' when preparing model output for custom comparisons or plots.
 #'
 #' @param mod output from \code{\link{fit_wham}}
 #' @param alphaCI (1-alpha)\% confidence intervals will be calculated. Default = 0.05 for 95\% CI.
