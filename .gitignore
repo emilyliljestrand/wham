@@ -15,4 +15,4 @@ noaa_docs
 src-i386
 /src/unused.hpp
 /oldfitobjects/*
-.posit/
+.posit/*
