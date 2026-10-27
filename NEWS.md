@@ -12,17 +12,11 @@ wham 2.1.0.9012 (2026-10-14)
 
 ### Bug fixes
 * `read_wham_fit` supplies missing log-scale abundance reports for comparison plots of fits without standard errors.
-* `refit_wham` expands active fixed-zero-correlation NAA matrices across regions while preserving stock-level sigma sharing, and identifies historical equilibrium conventions at stored latent values rather than newly optimized random-effect modes.
-* `refit_wham` recovers historical selectivity correlation and environmental AR1 scale conventions from stored process likelihoods, including BSB 2023 RT fits, and compares estimates in the original parameterization.
 * `compare_wham_models` handles legacy fits without the SPR reference-point flag when comparing saved fits with current refits; `read_wham_fit` normalizes historical abundance and mortality dimensions and preserves uncertainty in biomass, fishing mortality, and stock status.
 * `fit_wham` and `fit_peel` validate unsafe environmental and selectivity inputs before entering TMB; native bounds checks prevent known out-of-range accesses, and failed peels report their number and error.
 * `prepare_projection` pads annual environmental observation-error random effects along with projected covariate years.
 * `reduce_input` truncates environmental data, fitted starting values, and maps together even without saved preparation options; it preserves fishing-mortality maps and disables selectivity blocks lost in a peel.
-* `refit_wham` accepts fixed scalar or matrix selectivity placeholders in older models without selectivity random effects.
-* `refit_wham` preserves the historical initial-equilibrium survival convention when stored initial abundance identifies a fit made before the November 2023 correction, without changing current models or reference-point calculations.
-* `refit_wham` migrates inactive historical NAA parameter matrices across regions and single-region active NAA matrices with fixed-zero correlations, preserving fitted sigma values and sharing maps, and expands historical scalar no-movement placeholders; R and native dimension checks prevent out-of-bounds access that could terminate R even when NAA random effects are disabled.
 * `set_ecov` fixes annual observation-error random-effect dimensions, padding, initial values, and maps, preserves mixed fixed/estimated sigma options, and rejects nonconsecutive covariate years.
-* Fix refits changing the number of parameters when stored preparation options do not capture manual input changes. Migrate both packed and array selectivity random effects while preserving mean-selectivity mappings and parameter order.
 * (2.1.0.9012) fix some bugs in vignettes. [PR 101](https://github.com/timjmiller/wham/pull/101)
 * (2.1.0.9012) Change to minimize Eigen namespace usage per TMB issue 417. [e63ea63](https://github.com/timjmiller/wham/commit/e63ea63cad9a08acc67f74ac28cd385dd2220a77)
 * (2.1.0.9011) fix bug in selectivity configuration using `prepare_wham_input`. [823107f](https://github.com/timjmiller/wham/commit/823107fd2dadb1fa6819124fdc3681fe6615c69e)
