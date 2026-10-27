@@ -31,6 +31,46 @@ test_that("legacy year-age output is normalized for comparison", {
   expect_identical(read_wham_fit(mod)$MAA, mod$rep$MAA)
 })
 
+test_that("natural-scale reports supply missing log estimates without sdreport", {
+  naa <- array(seq_len(12), c(1L, 1L, 2L, 6L))
+  mod <- list(
+    is_sdrep = FALSE,
+    env = list(data = list(n_ages = 6, percentSPR = 40)),
+    years = 2001:2002,
+    years_full = 2001:2002,
+    rep = list(
+      MAA = naa * 0.01,
+      NAA = naa,
+      SSB = cbind(c(10, 20), c(30, 40)),
+      log_F_tot = log(c(0.1, 0.2))
+    )
+  )
+  result <- read_wham_fit(mod)
+  expect_equal(result$log_SSB_all$est, log(c(40, 60)))
+  expect_equal(result$log_NAA_rep$est, log(naa))
+  for (name in c("log_SSB_all", "log_NAA_rep")) {
+    zero <- result[[name]]$est
+    zero[] <- 0
+    expect_equal(result[[name]]$se, zero)
+    expect_equal(result[[name]]$ci, list(lo = zero, hi = zero))
+  }
+  expect_identical(dim(result$log_NAA_rep$est), dim(naa))
+  expect_null(mod$rep$log_NAA_rep)
+
+  mod$rep$log_SSB_all <- log(c(100, 200))
+  mod$rep$log_NAA_rep <- log(naa + 1)
+  result <- read_wham_fit(mod)
+  expect_equal(result$log_SSB_all$est, mod$rep$log_SSB_all)
+  expect_equal(result$log_NAA_rep$est, mod$rep$log_NAA_rep)
+
+  mod$rep$log_SSB_all <- mod$rep$log_NAA_rep <- NULL
+  mod$rep$MAA <- matrix(0.2, 2, 6)
+  mod$rep$NAA <- matrix(seq_len(12), 2, 6)
+  result <- read_wham_fit(mod)
+  expect_identical(dim(result$log_NAA_rep$est), c(1L, 1L, 2L, 6L))
+  expect_equal(result$log_NAA_rep$est[1, 1, , ], log(mod$rep$NAA))
+})
+
 test_that("saved legacy fits retain status estimates and covariance", {
   for (model in c("Butterfishfit", "GBK_Cod_2024MTfit")) {
     path <- test_path("..", "..", "oldfitobjects", paste0(model, ".rds"))

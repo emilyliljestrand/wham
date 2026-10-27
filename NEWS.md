@@ -11,6 +11,8 @@ wham 2.1.0.9012 (2026-10-14)
 * (2.1.0.9005) added greater tab structure to improve organization of plots in html files produced with plot_wham_output. [23150ef](https://github.com/timjmiller/wham/commit/23150efbd02aefea69000c958d7f3594744017fe)
 
 ### Bug fixes
+* `read_wham_fit` supplies missing log-scale abundance reports for comparison plots of fits without standard errors.
+* `refit_wham` expands active fixed-zero-correlation NAA matrices across regions while preserving stock-level sigma sharing, and identifies historical equilibrium conventions at stored latent values rather than newly optimized random-effect modes.
 * `refit_wham` recovers historical selectivity correlation and environmental AR1 scale conventions from stored process likelihoods, including BSB 2023 RT fits, and compares estimates in the original parameterization.
 * `compare_wham_models` handles legacy fits without the SPR reference-point flag when comparing saved fits with current refits; `read_wham_fit` normalizes historical abundance and mortality dimensions and preserves uncertainty in biomass, fishing mortality, and stock status.
 * `fit_wham` and `fit_peel` validate unsafe environmental and selectivity inputs before entering TMB; native bounds checks prevent known out-of-range accesses, and failed peels report their number and error.

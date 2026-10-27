@@ -254,8 +254,7 @@ test_that("independent active NAA matrices preserve fitted values and sigma shar
     "nonzero",
     "estimated zero",
     "missing map",
-    "short map",
-    "multiple regions"
+    "short map"
   )) {
     invalid <- fit
     if (case == "nonzero") {
@@ -270,9 +269,6 @@ test_that("independent active NAA matrices preserve fitted values and sigma shar
     if (case == "short map") {
       invalid$input$map$log_NAA_sigma <- factor(1L)
     }
-    if (case == "multiple regions") {
-      invalid$input$data$n_regions <- 2L
-    }
     error <- tryCatch(refit(invalid), error = identity)
     expect_s3_class(error, "error")
     expect_match(
@@ -280,6 +276,41 @@ test_that("independent active NAA matrices preserve fitted values and sigma shar
       "Cannot safely migrate active or unsupported stored NAA matrices",
       fixed = TRUE
     )
+  }
+})
+
+test_that("active multiregion NAA migration retains shared sigma groups", {
+  files <- c("BSB_2023Run11Combinedfit.rds", "BSB_2023Run17Combinedfit.rds")
+  for (file in files) {
+    path <- test_path("..", "..", "oldfitobjects", file)
+    skip_if_not(file.exists(path), "Local combined fits are unavailable")
+    fit <- readRDS(path)
+    fit$call <- quote(fit_wham(
+      input = input,
+      do.retro = FALSE,
+      do.osa = FALSE,
+      do.sdrep = FALSE,
+      do.brps = FALSE,
+      MakeADFun.silent = TRUE
+    ))
+    capture.output(result <- suppressMessages(refit_wham(fit)))
+    expect_lt(abs(result$opt$objective - fit$opt$objective), 1e-6)
+    expect_equal(result$opt$convergence, 0)
+    expect_identical(length(result$opt$par), length(fit$opt$par))
+    mapping <- array(
+      as.character(result$input$map$log_NAA_sigma),
+      dim(result$input$par$log_NAA_sigma)
+    )
+    for (region in seq_len(fit$input$data$n_regions)) {
+      expect_identical(
+        as.vector(mapping[, region, ]),
+        as.character(fit$input$map$log_NAA_sigma)
+      )
+      expect_equal(
+        result$input$par$log_NAA_sigma[, region, ],
+        fit$parList$log_NAA_sigma
+      )
+    }
   }
 })
 

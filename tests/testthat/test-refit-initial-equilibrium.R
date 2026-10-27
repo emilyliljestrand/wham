@@ -39,6 +39,30 @@ test_that("RT refits preserve historical process scales and likelihood", {
   expect_length(scales$ecov, 0)
 })
 
+test_that("equilibrium migration evaluates stored selectivity random effects", {
+  path <- test_path(
+    "..",
+    "..",
+    "oldfitobjects",
+    "sel_re_logistic_normal_fit_5.rds"
+  )
+  skip_if_not(file.exists(path), "Local selectivity fit is unavailable")
+  fit <- readRDS(path)
+  fit$call <- quote(fit_wham(
+    input = input,
+    do.retro = FALSE,
+    do.osa = FALSE,
+    do.sdrep = FALSE,
+    do.brps = FALSE,
+    MakeADFun.silent = TRUE
+  ))
+  capture.output(result <- suppressMessages(refit_wham(fit)))
+  expect_equal(result$input$data$N1_model, -1L)
+  # This saved optimum moves slightly along a nearly flat selectivity direction.
+  expect_lt(abs(result$opt$objective - fit$opt$objective), 2e-6)
+  expect_equal(result$opt$convergence, 0)
+})
+
 test_that("Run4 refits preserve historical equilibrium likelihood and estimates", {
   path <- test_path("..", "..", "oldfitobjects", "BSB_2023Run4fit.RDS")
   skip_if_not(file.exists(path), "Local BSB Run4 fit is unavailable")

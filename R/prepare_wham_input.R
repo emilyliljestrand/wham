@@ -493,7 +493,7 @@ refit_wham <- function(fit = NULL) {
 	if (is.null(input$data$decouple_recruitment)) input$data$decouple_recruitment <- as.integer(refit_decouple_recruitment(fit))
 
   # Zero, fixed correlations are invariant to historical transform conventions.
-  # Inactive placeholders can also be expanded across regions.
+  # Preserve stock-level sharing when adding the regional dimension.
   naa_matrices <- c(log_NAA_sigma = input$data$n_ages, trans_NAA_rho = 2L)
   old_naa <- vapply(
     names(naa_matrices),
@@ -523,7 +523,7 @@ refit_wham <- function(fit = NULL) {
         length(mapping) == length(value)
       inactive <- inactive && !is.null(mapping) && all(is.na(mapping))
     }
-    independent <- isTRUE(input$data$n_regions == 1L) &&
+    independent <-
       length(input$data$NAA_re_model) == input$data$n_stocks &&
       all(input$data$NAA_re_model %in% 0:2) &&
       !is.null(input$par$trans_NAA_rho) &&
@@ -543,11 +543,14 @@ refit_wham <- function(fit = NULL) {
       ]
     }
     if (old_naa[["log_NAA_sigma"]]) {
+      mapping <- input$map$log_NAA_sigma
+      mapping_array <- expand_regions(matrix(
+        as.character(mapping), input$data$n_stocks
+      ))
       input$par$log_NAA_sigma <- expand_regions(input$par$log_NAA_sigma)
       if (input$data$n_regions > 1L) {
-        mapping <- input$map$log_NAA_sigma
         input$map$log_NAA_sigma <- factor(
-          rep(NA_character_, length(input$par$log_NAA_sigma)),
+          as.vector(mapping_array),
           levels = levels(mapping)
         )
       }
@@ -817,8 +820,9 @@ refit_initial_equilibrium <- function(input, stored_N1) {
   if (!length(stocks) || is.null(stored_N1)) return(input)
   validate_input_safety(input)
   initial_numbers <- function(input) {
+    # Compare reports at stored latent values, not newly optimized modes.
     model <- TMB::MakeADFun(
-      input$data, input$par, map = input$map, random = input$random,
+      input$data, input$par, map = input$map,
       DLL = "wham", silent = TRUE
     )
     on.exit(TMB::FreeADFun(model))

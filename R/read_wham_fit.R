@@ -147,5 +147,18 @@ read_wham_fit <- function(mod, alphaCI = 0.05) {
       }
     }
   }
+  # Fits without sdreport may only report SSB and NAA on the natural scale.
+  # Normalize these here so every comparison panel sees the same output.
+  log_report <- function(est) {
+    se <- est
+    se[] <- 0
+    list(est = log(est), se = se, ci = list(lo = se, hi = se))
+  }
+  if (is.null(x[["log_SSB_all"]]) && !is.null(x[["SSB"]])) {
+    x$log_SSB_all <- log_report(rowSums(cbind(x$SSB$est)))
+  }
+  if (is.null(x[["log_NAA_rep"]]) && !is.null(x[["NAA"]])) {
+    x$log_NAA_rep <- log_report(x$NAA$est)
+  }
   return(x)
 }
