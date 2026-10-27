@@ -31,7 +31,18 @@
       "git restore *": "allow",
       "status=$? *": "allow",
       "find *": "allow",
-      "python *": "allow"
+      "python *": "allow",
+      "git remote *": "allow",
+      "git branch *": "allow",
+      "git diff *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' branch *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' diff *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' ls-files *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' check-ignore *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' rev-list *": "allow",
+      "rg *": "allow",
+      "git -C 'c:/Users/emily.liljestrand/Documents/GitHub/wham' merge-base *": "allow",
+      "powershell.exe *": "allow"
     },
     "executeCode": {
       "*": "allow"
@@ -40,7 +51,8 @@
       "*/NAMESPACE": "allow",
       "*.R": "allow",
       "*.md": "allow",
-      "*.hpp": "allow"
+      "*.hpp": "allow",
+      "*.yml": "allow"
     },
     "webfetch": {
       "https://github.com/*": "allow",

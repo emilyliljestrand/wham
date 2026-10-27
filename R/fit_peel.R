@@ -20,10 +20,7 @@
 fit_peel <- function(peel, input, do.sdrep = FALSE, n.newton = 3, MakeADFun.silent = FALSE, retro.silent = FALSE, save.input = FALSE)
 {
   out <- list()
-  if (length(peel) != 1L || !is.numeric(peel) || !is.finite(peel) ||
-      peel != floor(peel) || peel < 1L || peel > length(input$years) - 2L) {
-    stop("peel must be a positive integer retaining at least two model years.")
-  }
+  validate_peel_count(peel, input$years)
   if(!retro.silent) message(paste0("Retro Peel: ", peel))
   validate_input_safety(input)
   temp <- reduce_input(input, tail(input$years,peel))

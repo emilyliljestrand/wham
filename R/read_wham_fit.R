@@ -29,10 +29,9 @@
 #'
 #' @seealso \code{\link{fit_wham}}, \code{\link{read_asap3_fit}}, \code{\link{compare_wham_models}}
 #'
-read_wham_fit <- function(mod, alphaCI = 0.05) {
+read_wham_fit <- function(mod, alphaCI=0.05){
   # if sdreport succeeded but didn't save full sdreport object in mod, recalculate it here
-  if (mod$is_sdrep & class(mod$sdrep)[1] != "sdreport") {
-    #only summary saved
+  if(mod$is_sdrep & class(mod$sdrep)[1] != "sdreport"){ #only summary saved
     mod$sdrep <- TMB::sdreport(mod)
   }
   n_ages <- mod$env$data$n_ages
@@ -40,71 +39,43 @@ read_wham_fit <- function(mod, alphaCI = 0.05) {
 
   x <- list()
 
-  if (!is.null(mod$sdrep)) {
-    std <- list(
-      est = TMB:::as.list.sdreport(mod$sdrep, report = T, what = "Est"),
-      se = TMB:::as.list.sdreport(mod$sdrep, report = T, what = "Std")
-    )
+  if(!is.null(mod$sdrep)){
+    std <- list(est = TMB:::as.list.sdreport(mod$sdrep, report=T, what = "Est"), se = TMB:::as.list.sdreport(mod$sdrep, report=T, what = "Std"))
     inds <- list()
     std.summ <- summary(mod$sdrep, "report")
-    # inds$Y.t <- matrix(which(rownames(std) == "log_Y_FXSPR"), ncol = all_catch)
-    inds$F.t <- which(rownames(std.summ) == "log_FXSPR")
-    inds$SSB.t <- matrix(
-      which(rownames(std.summ) == "log_SSB_FXSPR"),
-      ncol = NCOL(std$est$log_SSB_FXSPR)
-    )[, NCOL(std$est$log_SSB_FXSPR)]
-    inds$ssb <- which(rownames(std.summ) == "log_SSB_all")
-    inds$full.f <- which(rownames(std.summ) == "log_F_tot")
-    if (!length(inds$ssb)) {
-      inds$ssb <- which(rownames(std.summ) == "log_SSB")
-    }
-    if (!length(inds$full.f)) {
-      inds$full.f <- which(rownames(std.summ) == "log_F")
-    }
+  	# inds$Y.t <- matrix(which(rownames(std) == "log_Y_FXSPR"), ncol = all_catch)
+  	inds$F.t <- which(rownames(std.summ) == "log_FXSPR")
+  	inds$SSB.t <- matrix(which(rownames(std.summ) == "log_SSB_FXSPR"), ncol = NCOL(std$est$log_SSB_FXSPR))[,NCOL(std$est$log_SSB_FXSPR)]
+    inds$ssb <- wham_report_index(std.summ, "log_SSB_all", "log_SSB")
+    inds$full.f <- wham_report_index(std.summ, "log_F_tot", "log_F")
     rep_names <- names(std$est)
     # rep_names <- c("log_FMSY", "log_SSB_MSY", "log_MSY", "log_SSB", "log_SSB_all", "log_F_tot", "log_NAA_rep", "log_FXSPR", "log_Y_FXSPR", "log_SSB_FXSPR")
     cov <- mod$sdrep$cov
-    x$log_rel_ssb_F_cov <- lapply(1:n_years, function(x) {
-      K <- cbind(c(1, -1, 0, 0), c(0, 0, 1, -1))
-      ind <- c(inds$ssb[x], inds$SSB.t[x], inds$full.f[x], inds$F.t[x])
-      tcov <- cov[ind, ind]
-      ests <- std.summ[ind, 1]
+    x$log_rel_ssb_F_cov <- lapply(1:n_years, function(x){
+      K <- cbind(c(1,-1,0,0),c(0,0,1,-1))
+      ind <- c(inds$ssb[x],inds$SSB.t[x],inds$full.f[x],inds$F.t[x])
+      tcov <- cov[ind,ind]
+      ests <- std.summ[ind,1]
       diff <- t(K) %*% ests
       return(list(diff, t(K) %*% tcov %*% K))
     })
-    for (i in 1:length(rep_names)) {
+    for(i in 1:length(rep_names)){
       ci.type <- "I"
-      if (length(grep("log_", rep_names[i]))) {
-        ci.type <- "exp"
-      }
-      x[[rep_names[i]]] <- list(
-        est = std$est[[rep_names[i]]],
-        se = std$se[[rep_names[i]]],
-        ci = get.ci(
-          std$est[[rep_names[i]]],
-          std$se[[rep_names[i]]],
-          type = ci.type,
-          alpha.ci = alphaCI,
-          asap = FALSE
-        )
-      )
+      if(length(grep("log_", rep_names[i]))) ci.type <- "exp"
+      x[[rep_names[i]]] <- list(est = std$est[[rep_names[i]]], se = std$se[[rep_names[i]]], 
+        ci = get.ci(std$est[[rep_names[i]]], std$se[[rep_names[i]]], type = ci.type, alpha.ci = alphaCI, asap = FALSE))
     }
-    if (
-      "log_FMSY" %in% rownames(std.summ) & "log_SSB_MSY" %in% rownames(std.summ)
-    ) {
-      inds$SSBmsy <- matrix(
-        which(rownames(std.summ) == "log_SSB_MSY"),
-        ncol = NCOL(std$est$log_SSB_MSY)
-      )[, NCOL(std$est$log_SSB_MSY)]
+    if("log_FMSY" %in% rownames(std.summ) & "log_SSB_MSY" %in% rownames(std.summ)){
+      inds$SSBmsy <- matrix(which(rownames(std.summ) == "log_SSB_MSY"), ncol = NCOL(std$est$log_SSB_MSY))[,NCOL(std$est$log_SSB_MSY)]
       inds$Fmsy <- which(rownames(std) == "log_FMSY")
-      x$log_rel_ssb_F_cov_msy <- lapply(1:n_years, function(x) {
-        K <- cbind(c(1, -1, 0, 0), c(0, 0, 1, -1))
-        ind <- c(inds$ssb[x], inds$SSBmsy[x], inds$full.f[x], inds$Fmsy[x])
-        tcov <- cov[ind, ind]
-        ests <- std.summ[ind, 1]
+      x$log_rel_ssb_F_cov_msy <- lapply(1:n_years, function(x){
+        K <- cbind(c(1,-1,0,0),c(0,0,1,-1))
+        ind <- c(inds$ssb[x],inds$SSBmsy[x],inds$full.f[x],inds$Fmsy[x])
+        tcov <- cov[ind,ind]
+        ests <- std.summ[ind,1]
         diff <- t(K) %*% ests
         return(list(diff, t(K) %*% tcov %*% K))
-      })
+      })    
     }
   } else {
     x[names(mod$rep)] <- lapply(mod$rep, function(x) {
@@ -122,43 +93,6 @@ read_wham_fit <- function(mod, alphaCI = 0.05) {
   x$selblock_pointer_indices <- mod$env$data$selblock_pointer_indices
   x$MAA <- mod$rep$MAA
   x$percentSPR <- mod$env$data$percentSPR
-  if (length(dim(x$MAA)) == 2L) {
-    # Pre-spatial fits represent a single stock and region as year-age matrices.
-    x$MAA <- array(x$MAA, dim = c(1L, 1L, dim(x$MAA)))
-    for (nm in c("NAA", "log_NAA_rep")) {
-      if (!is.null(x[[nm]])) {
-        expand <- function(value) array(value, dim = c(1L, 1L, dim(value)))
-        x[[nm]]$est <- expand(x[[nm]]$est)
-        x[[nm]]$se <- expand(x[[nm]]$se)
-        x[[nm]]$ci <- lapply(x[[nm]]$ci, expand)
-      }
-    }
-    if (is.null(x[["log_SSB_all"]])) {
-      x$log_SSB_all <- x[["log_SSB"]]
-    }
-    if (is.null(x[["log_F_tot"]])) {
-      x$log_F_tot <- x[["log_F"]]
-    }
-    for (nm in c("log_SSB_all", "log_F_tot")) {
-      if (!is.null(x[[nm]])) {
-        x[[nm]]$est <- as.vector(x[[nm]]$est)
-        x[[nm]]$se <- as.vector(x[[nm]]$se)
-        x[[nm]]$ci <- lapply(x[[nm]]$ci, as.vector)
-      }
-    }
-  }
-  # Fits without sdreport may only report SSB and NAA on the natural scale.
-  # Normalize these here so every comparison panel sees the same output.
-  log_report <- function(est) {
-    se <- est
-    se[] <- 0
-    list(est = log(est), se = se, ci = list(lo = se, hi = se))
-  }
-  if (is.null(x[["log_SSB_all"]]) && !is.null(x[["SSB"]])) {
-    x$log_SSB_all <- log_report(rowSums(cbind(x$SSB$est)))
-  }
-  if (is.null(x[["log_NAA_rep"]]) && !is.null(x[["NAA"]])) {
-    x$log_NAA_rep <- log_report(x$NAA$est)
-  }
+  x <- normalize_wham_fit(x)
   return(x)
 }
