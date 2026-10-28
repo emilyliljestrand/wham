@@ -230,7 +230,7 @@ test_that("unsupported legacy configurations are rejected before rebuilding", {
     )
   )
   unsupported <- list(
-    Ecov_model = 1, selblock_models_re = 2, M_re_model = 2,
+    Ecov_model = 3, selblock_models_re = 6, M_re_model = 6,
     M_model = 3, use_steepness = 1, do_proj = 1
   )
   for (field in names(unsupported)) {
@@ -241,6 +241,198 @@ test_that("unsupported legacy configurations are rejected before rebuilding", {
       "Cannot safely migrate this legacy WHAM input"
     )
   }
+})
+
+test_that("packed legacy age-composition positions preserve series order", {
+  data <- list(
+    n_age_comp_pars_fleets = c(0L, 1L, 2L, 3L),
+    n_age_comp_pars_indices = c(1L, 0L)
+  )
+  expect_equal(
+    refit_legacy_age_comp_indices(data, "catch_paa_pars"),
+    c(2L, 3L, 7L, 4L, 8L, 12L)
+  )
+  expect_equal(refit_legacy_age_comp_indices(data, "index_paa_pars"), 1L)
+  data$n_age_comp_pars_fleets <- c(0L, 4L)
+  expect_error(refit_legacy_age_comp_indices(data, "catch_paa_pars"), "Cannot safely migrate")
+})
+
+test_that("v1.0.0 fits migrate without ASAP3 data", {
+  release_dir <- test_path("..", "..", "oldfitobjects", "release_refits", "v1.0.0")
+  paths <- list.files(release_dir, "^m[1-4]_original\\.rds$", full.names = TRUE)
+  skip_if_not(length(paths) > 0L, "Generate fixtures with tests/manual/refit-releases.R")
+  for (path in paths) {
+    fit <- readRDS(path)
+    original_input <- fit$input
+    expect_null(fit$input$asap3)
+    input <- suppressMessages(migrate_legacy_refit_input(fit))
+    expect_identical(fit$input, original_input)
+    expect_identical(input$years, fit$input$years)
+    expect_identical(input$ages.lab, fit$input$ages.lab)
+    expect_equal(input$data$which_F_age, rep(fit$input$data$which_F_age, length(fit$years)))
+    expect_equal(as.vector(input$par$Mpars), fit$parList$M0 + fit$parList$M_a)
+    expect_equal(as.vector(input$par$trans_NAA_rho), c(2 * fit$parList$trans_NAA_rho, 0))
+    expect_true(is.na(tail(input$map$trans_NAA_rho, 1)))
+    for (field in c("agg_catch", "catch_paa", "agg_indices", "index_paa",
+                    "use_agg_catch", "use_catch_paa", "use_indices", "use_index_paa")) {
+      expect_identical(input$data[[field]], fit$input$data[[field]])
+    }
+    expect_equal(dim(input$data$keep_Cpaa), c(input$data$n_fleets, input$data$n_years_model, 2L))
+    expect_equal(length(input$data$agesvec), length(input$data$obsvec))
+    if (any(fit$input$data$age_comp_model_fleets == 7L)) {
+      expect_true(all(input$data$age_comp_model_fleets == 5L))
+      expect_true(all(input$data$age_comp_model_indices == 5L))
+      expect_true(all(input$data$catch_Neff == 1))
+      expect_true(all(input$data$index_Neff == 1))
+      expect_identical(input$legacy_age_comp_Neff$catch, fit$input$data$catch_Neff)
+      expect_identical(input$legacy_age_comp_Neff$index, fit$input$data$index_Neff)
+    }
+    model <- TMB::MakeADFun(
+      input$data, input$par, DLL = "wham", random = input$random,
+      map = input$map, silent = TRUE
+    )
+    expect_equal(as.numeric(model$fn(model$par)), as.numeric(fit$opt$objective), tolerance = 1e-6, scale = 1)
+    report <- model$report()
+    for (field in c("MAA", "NAA", "SSB", "pred_catch", "pred_indices")) {
+      expect_equal(as.vector(report[[field]]), as.vector(fit$rep[[field]]), tolerance = 1e-8)
+    }
+    TMB::FreeADFun(model)
+    fit$call <- quote(fit_wham(input = input, do.retro = FALSE, do.osa = FALSE,
+      do.sdrep = FALSE, do.brps = FALSE, do.post.samp = FALSE, MakeADFun.silent = TRUE))
+    capture.output(result <- suppressWarnings(suppressMessages(refit_wham(fit))))
+    expect_equal(result$opt$objective, fit$opt$objective, tolerance = 1e-6, scale = 1)
+    expect_equal(result$opt$convergence, 0)
+    expect_identical(fit$input, original_input)
+    TMB::FreeADFun(result)
+  }
+  fit <- readRDS(paths[1])
+  fit$input$map$M0 <- factor(1L)
+  expect_error(suppressMessages(migrate_legacy_refit_input(fit)), "estimated legacy M0")
+  fit$input$years <- NULL
+  expect_error(suppressMessages(migrate_legacy_refit_input(fit)), "stored model years")
+  fit <- readRDS(paths[1])
+  fit$input$data$age_comp_model_fleets[] <- 5L
+  expect_error(suppressMessages(migrate_legacy_refit_input(fit)), "unsupported early age-composition likelihood")
+})
+
+test_that("tagged v1.0.1 through v1.0.6 fits preserve stored likelihoods", {
+  root <- test_path("..", "..", "oldfitobjects", "release_refits")
+  paths <- unlist(lapply(paste0("v1.0.", 1:6), function(tag) {
+    list.files(file.path(root, tag), "_original\\.rds$", full.names = TRUE)
+  }), use.names = FALSE)
+  skip_if_not(length(paths) > 0L, "Generate fixtures with tests/manual/refit-releases.R")
+  for (path in paths) {
+    fit <- readRDS(path)
+    reference <- readRDS(sub("_original\\.rds$", "_reference.rds", path))
+    original_input <- fit$input
+    input <- suppressMessages(migrate_legacy_refit_input(fit))
+    expect_identical(fit$input, original_input, info = path)
+    expect_equal(input$years, original_input$years, info = path)
+    expect_length(input$data$which_F_age, input$data$n_years_model)
+    expect_equal(input$data$bias_correct_pe, original_input$data$bias_correct_pe)
+    expect_equal(input$data$bias_correct_oe, original_input$data$bias_correct_oe)
+    if (is.matrix(original_input$par$catch_paa_pars)) {
+      expect_identical(input$data$age_comp_model_fleets, original_input$data$age_comp_model_fleets)
+      expect_identical(input$data$age_comp_model_indices, original_input$data$age_comp_model_indices)
+      expect_identical(input$data$catch_Neff, original_input$data$catch_Neff)
+      expect_identical(input$data$index_Neff, original_input$data$index_Neff)
+      expect_null(input$legacy_age_comp_Neff)
+    }
+    model <- TMB::MakeADFun(
+      input$data, input$par, DLL = "wham", random = input$random,
+      map = input$map, silent = TRUE
+    )
+    expect_equal(as.numeric(model$fn(model$par)), as.numeric(fit$opt$objective),
+      tolerance = 1e-6, scale = 1, info = path)
+    TMB::FreeADFun(model)
+    model <- TMB::MakeADFun(
+      input$data, input$par, DLL = "wham", map = input$map, silent = TRUE
+    )
+    model$fn(model$par)
+    report <- model$report()
+    for (field in c("MAA", "NAA", "SSB", "pred_catch", "pred_indices")) {
+      expect_equal(as.vector(report[[field]]), as.vector(reference[[field]]),
+        tolerance = 1e-7, info = paste(path, field))
+    }
+    TMB::FreeADFun(model)
+  }
+})
+
+test_that("early logistic-normal weighting requires a matching stored report", {
+  root <- test_path("..", "..", "oldfitobjects", "release_refits")
+  paths <- file.path(root, c("v1.0.2", "v1.0.3"), "m2_original.rds")
+  skip_if_not(all(file.exists(paths)), "Generate v1.0.2 and v1.0.3 fixtures")
+  for (position in seq_along(paths)) {
+    fit <- readRDS(paths[position])
+    input <- suppressMessages(migrate_legacy_refit_input(fit))
+    expected <- fit$input$data$catch_Neff
+    if (position == 1L) expected[] <- 1
+    expect_identical(input$data$catch_Neff, expected)
+    expect_identical(input$legacy_age_comp_Neff$catch, fit$input$data$catch_Neff)
+  }
+  fit <- readRDS(paths[2L])
+  fit$rep$nll_catch_acomp <- fit$rep$nll_catch_acomp + 1
+  expect_error(suppressMessages(migrate_legacy_refit_input(fit)),
+    "Cannot safely infer historical age-composition weighting")
+  fit$rep$nll_catch_acomp <- NULL
+  expect_error(suppressMessages(migrate_legacy_refit_input(fit)),
+    "without stored nll_catch_acomp")
+})
+
+test_that("legacy process and environmental features preserve stored likelihoods", {
+  root <- test_path("..", "..", "oldfitobjects", "release_refits")
+  paths <- unlist(lapply(c("v1.0.0", "v1.0.5", "v1.0.6"), function(tag) {
+    list.files(file.path(root, tag, "features"), "_original\\.rds$", full.names = TRUE)
+  }), use.names = FALSE)
+  skip_if_not(length(paths) > 0L, "Generate feature fixtures with tests/manual/refit-releases.R")
+  for (path in paths) {
+    fit <- readRDS(path)
+    reference <- readRDS(sub("_original\\.rds$", "_reference.rds", path))
+    original_input <- fit$input
+    input <- suppressMessages(migrate_legacy_refit_input(fit))
+    expect_identical(fit$input, original_input, info = path)
+    expect_equal(input$data$M_re_model[1], c(1L, 4L, 2L, 3L, 4L)[original_input$data$M_re_model])
+    expect_equal(input$data$selblock_models_re, original_input$data$selblock_models_re - 1L)
+    model <- TMB::MakeADFun(input$data, input$par, random = input$random,
+      map = input$map, DLL = "wham", silent = TRUE)
+    expect_length(model$par, length(fit$opt$par))
+    expect_equal(as.numeric(model$fn(model$par)), as.numeric(fit$opt$objective),
+      tolerance = 1e-6, scale = 1, info = path)
+    TMB::FreeADFun(model)
+    model <- TMB::MakeADFun(input$data, input$par, map = input$map, DLL = "wham", silent = TRUE)
+    model$fn(model$par)
+    report <- model$report()
+    for (field in names(reference)) {
+      expect_equal(as.vector(report[[field]]), as.vector(reference[[field]]),
+        tolerance = 1e-7, info = paste(path, field))
+    }
+    TMB::FreeADFun(model)
+  }
+})
+
+test_that("historical environmental AR1 simulation preserves its transition", {
+  path <- test_path("..", "..", "oldfitobjects", "release_refits", "v1.0.0",
+    "features", "environment_ar1_recruit_original.rds")
+  skip_if_not(file.exists(path), "Generate the earliest environmental fixture")
+  fit <- readRDS(path)
+  input <- suppressMessages(migrate_legacy_refit_input(fit))
+  expect_equal(as.integer(input$data$Ecov_model), 3L)
+  for (field in grep("^do_simulate_", names(input$data), value = TRUE)) input$data[[field]][] <- 0L
+  input$data$do_simulate_Ecov_re <- 1L
+  input$data$do_simulate_period <- c(1L, 0L)
+  model <- TMB::MakeADFun(input$data, input$par, map = input$map, DLL = "wham", silent = TRUE)
+  on.exit(TMB::FreeADFun(model))
+  parameters <- input$par$Ecov_process_pars[, 1L]
+  correlation <- tanh(parameters[3L] / 2)
+  deviation <- exp(parameters[2L])
+  expected <- numeric(input$data$n_years_Ecov)
+  set.seed(193)
+  expected[1L] <- rnorm(1, 0, deviation / sqrt(1 - correlation^2))
+  for (year in 2:length(expected)) expected[year] <- rnorm(1,
+    correlation * (expected[year - 1L] - parameters[1L]), deviation)
+  set.seed(193)
+  simulated <- model$simulate(model$par)
+  expect_equal(as.vector(simulated$Ecov_re), expected, tolerance = 1e-12)
 })
 
 test_that("legacy Butterfish migration preserves the likelihood and estimates", {

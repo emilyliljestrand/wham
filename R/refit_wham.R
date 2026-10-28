@@ -16,13 +16,23 @@
 #' arrays without rebuilding the model from preparation options. Mean values,
 #' bounds, and mappings are retained, including shared annual random effects.
 #'
-#' Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
-#' input structure while retaining fitted values, parameter mappings,
-#' observations, bias correction, and correlation transforms. Environmental
-#' effects,
-#' selectivity or mortality random effects, weight-based mortality,
-#' steepness, and stored projections are not yet supported and produce
-#' an error rather than silently changing the model. Parameter comparisons use
+#' Supported single-stock pre-2.0 inputs are migrated to the current input
+#' structure while retaining fitted values, parameter mappings, observations,
+#' bias correction, and correlation transforms. Fits without stored ASAP3 data
+#' use their stored model years and dimensions. Early packed age-composition
+#' parameters, two abundance correlations, and fixed mortality baselines are
+#' converted to the current layout, including rebuilt observation indices.
+#' For early inputs with packed age-composition parameter vectors, supported
+#' age-composition likelihoods are multinomial, Dirichlet-multinomial, and
+#' logistic-normal with zeros missing. Stored age-composition likelihood
+#' components distinguish historical unweighted and sample-size-weighted
+#' variances. Migration uses unit or original effective sample sizes accordingly,
+#' retaining the originals in \code{input$legacy_age_comp_Neff}. Missing or
+#' ambiguous likelihood evidence produces an error instead of guessing.
+#' Later matrix-layout inputs retain their likelihood numbering and sample-size
+#' weights even when their observation indices need rebuilding.
+#' Estimated legacy mortality baselines with age-specific offsets are not
+#' supported. Parameter comparisons use
 #' the original parameterization even when migration changes names or order.
 #' Recruitment decoupling is recovered from stored options or data flags, then
 #' from active recruitment correlation parameters, defaulting to coupled when
@@ -54,129 +64,7 @@ refit_wham <- function(fit = NULL) {
     is.null(input$data$selpars_re_index) && !is.null(input$data$selpars_est)
   ) {
     data <- input$data
-    pars <- input$par
-    width <- max(data$n_ages, 4L)
-    shape <- c(data$n_selblocks, data$n_years_model, width)
-    deviations <- array(0, shape)
-    deviation_map <- array(NA_character_, shape)
-    indices <- matrix(0L, data$n_selblocks, width)
-    counts <- rep(1L, data$n_selblocks)
-    old_deviation_map <- input$map$selpars_re
-    if (is.null(old_deviation_map)) {
-      old_deviation_map <- factor(seq_along(pars$selpars_re))
-    }
-    if (length(old_deviation_map) != length(pars$selpars_re)) {
-      stop("Invalid stored selectivity random-effect dimensions.")
-    }
-    # Older models without selectivity RE store a fixed 1 x 1 placeholder.
-    if (
-      all(data$selblock_models_re == 1L) &&
-        length(pars$selpars_re) == 1L &&
-        all(is.na(old_deviation_map))
-    ) {
-      pars$selpars_re <- numeric()
-      old_deviation_map <- factor(
-        character(),
-        levels = levels(old_deviation_map)
-      )
-    }
-    array_layout <- !is.null(dim(pars$selpars_re))
-    if (
-      array_layout &&
-        !identical(as.integer(dim(pars$selpars_re)), as.integer(shape))
-    ) {
-      stop("Invalid stored selectivity random-effect dimensions.")
-    }
-    array_map <- if (array_layout) {
-      array(as.character(old_deviation_map), shape)
-    } else {
-      NULL
-    }
-    used <- array(FALSE, shape)
-    offset <- 0L
-    for (block in seq_len(data$n_selblocks)) {
-      model <- data$selblock_models[block]
-      columns <- if (model == 1L) {
-        seq_len(data$n_ages)
-      } else if (model == 3L) {
-        data$n_ages + 2L + seq_len(4L)
-      } else {
-        data$n_ages + seq_len(2L)
-      }
-      if (data$selblock_models_re[block] > 1L) {
-        years <- which(data$selblock_years[, block] == 1L)
-        active <- which(data$selpars_est[block, columns] == 1L)
-        count <- data$n_selpars_est[block]
-        if (
-          length(active) != count ||
-            !length(years) ||
-            count < 1L ||
-            count > width
-        ) {
-          stop(
-            "Cannot safely migrate stored selectivity random effects for block ",
-            block,
-            "."
-          )
-        }
-        if (array_layout) {
-          values <- matrix(
-            pars$selpars_re[block, years, seq_len(count)],
-            nrow = length(years)
-          )
-          mapping <- matrix(
-            array_map[block, years, seq_len(count)],
-            nrow = length(years)
-          )
-          used[block, years, seq_len(count)] <- TRUE
-        } else {
-          positions <- offset + seq_len(length(years) * count)
-          if (max(positions) > length(pars$selpars_re)) {
-            stop("Invalid stored selectivity random-effect dimensions.")
-          }
-          values <- matrix(pars$selpars_re[positions], nrow = length(years))
-          mapping <- matrix(
-            as.character(old_deviation_map[positions]),
-            nrow = length(years)
-          )
-          offset <- offset + length(positions)
-        }
-        if (data$selblock_models_re[block] == 4L) {
-          if (
-            !identical(as.vector(mapping), rep(mapping[, 1L], count)) ||
-              !isTRUE(all.equal(as.vector(values), rep(values[, 1L], count)))
-          ) {
-            stop(
-              "Cannot safely migrate unshared annual selectivity random effects."
-            )
-          }
-          counts[block] <- 1L
-          indices[block, active] <- 1L
-          deviations[block, years, 1L] <- values[, 1L]
-          deviation_map[block, years, 1L] <- mapping[, 1L]
-        } else {
-          counts[block] <- count
-          indices[block, active] <- seq_len(count)
-          deviations[block, years, seq_len(count)] <- values
-          deviation_map[block, years, seq_len(count)] <- mapping
-        }
-      }
-    }
-    if (
-      (!array_layout && offset != length(pars$selpars_re)) ||
-        (array_layout && any(!is.na(array_map[!used])))
-    ) {
-      stop("Invalid stored selectivity random-effect dimensions.")
-    }
-    input$par <- pars
-    input$par$selpars_re <- deviations
-    input$map$selpars_re <- factor(
-      deviation_map,
-      levels = levels(old_deviation_map)
-    )
-    input$data$selpars_re_index <- indices
-    input$data$n_selpars_re <- counts
-    input$data$selblock_models_re <- as.integer(data$selblock_models_re - 1L)
+    input <- migrate_refit_selectivity(input)
     if (isTRUE(data$do_proj == 1L)) {
       stop("Cannot safely migrate stored projections in this WHAM input.")
     }
@@ -399,12 +287,35 @@ refit_wham <- function(fit = NULL) {
   if (legacy) {
     est_refit <- est_fit
     pars <- refit$parList
+    if (any(fit$input$data$Ecov_model != 0L)) {
+      beta <- fit$input$par$Ecov_beta
+      layout <- refit_legacy_ecov_layout(fit$input$data, beta)
+      for (parameter in names(layout$indices)) {
+        positions <- layout$indices[[parameter]]
+        active <- positions > 0L
+        beta[positions[active]] <- pars[[parameter]][active]
+      }
+      pars$Ecov_beta <- beta
+    }
     pars$log_N1_pars <- as.vector(pars$log_N1)[seq_along(
       fit$input$par$log_N1_pars
     )]
     pars$log_F1 <- pars$F_pars[1, ]
     pars$F_devs <- pars$F_pars[-1, , drop = FALSE]
     pars$M_a <- as.vector(pars$Mpars)[seq_along(fit$input$par$M_a)]
+    old_M0 <- fit$parList$M0
+    if (is.null(old_M0)) old_M0 <- fit$input$par$M0
+    if (!is.null(old_M0)) {
+      pars$M0 <- if (fit$input$data$M_model == 1L) pars$Mpars[1] else old_M0
+      pars$M_a <- pars$M_a - pars$M0
+    }
+    for (parameter in c("catch_paa_pars", "index_paa_pars")) {
+      if (!is.matrix(fit$input$par[[parameter]])) {
+        pars[[parameter]] <- pars[[parameter]][
+          refit_legacy_age_comp_indices(fit$input$data, parameter)
+        ]
+      }
+    }
     pointers <- fit$input$data$NAA_sigma_pointers
     if (refit_decouple_recruitment(fit)) {
       rho <- tanh(as.vector(pars$trans_NAA_rho) / 2)
@@ -419,7 +330,9 @@ refit_wham <- function(fit = NULL) {
     pars$log_NAA_sigma <- as.vector(pars$log_NAA_sigma)[
       match(seq_along(fit$input$par$log_NAA_sigma), pointers)
     ]
-    pars$trans_NAA_rho <- as.vector(pars$trans_NAA_rho) / 2
+    pars$trans_NAA_rho <- as.vector(pars$trans_NAA_rho)[
+      seq_along(fit$input$par$trans_NAA_rho)
+    ] / 2
     pars$q_repars[, 2] <- pars$q_repars[, 2] / 2
     pars$sel_repars[, 2:3] <- pars$sel_repars[, 2:3] / 2
     pars$M_repars <- as.vector(pars$M_repars)

@@ -8,7 +8,7 @@ void validate_Ecov_re(vector<int> Ecov_model, matrix<Type> Ecov_process_pars,
   if(Ecov_use_re.size() != n_Ecov)
     Rf_error("Ecov_use_re must have one entry per Ecov");
   for(int i = 0; i < n_Ecov; i++) if(Ecov_use_re(i) == 1 && Ecov_model(i) > 0){
-    int n_pars = Ecov_model(i) == 2 ? 3 : 2;
+    int n_pars = Ecov_model(i) >= 2 ? 3 : 2;
     if(Ecov_re.cols() <= i || Ecov_process_pars.cols() <= i || Ecov_process_pars.rows() < n_pars)
       Rf_error("Ecov random effects or process parameters have incompatible dimensions");
   }
@@ -71,6 +71,17 @@ matrix<Type> get_nll_Ecov(vector<int> Ecov_model, matrix<Type> Ecov_process_pars
       //vector<Type> re_i = Ecov_re.col(i);
       nll_Ecov(0,i) += SCALE(AR1(Ecov_phi), Ecov_sig)(re_i);
     }
+    if(Ecov_model(i) == 3 && Ecov_use_re(i) == 1){
+      Type mean = Ecov_process_pars(0,i);
+      Type correlation = geninvlogit(Ecov_process_pars(2,i), Type(-1), Type(1), Type(1));
+      Type deviation = exp(Ecov_process_pars(1,i));
+      nll_Ecov(0,i) -= dnorm(Ecov_re(years_use(0),i), Type(0),
+        deviation / sqrt(Type(1) - correlation * correlation), true);
+      for(int year = 1; year < n_y; year++){
+        nll_Ecov(year,i) -= dnorm(Ecov_re(years_use(year),i),
+          correlation * (Ecov_re(years_use(year-1),i) - mean), deviation, true);
+      }
+    }
   }
   return(nll_Ecov);
 }
@@ -104,7 +115,7 @@ matrix<Type> get_Ecov(vector<int> Ecov_model, matrix<Type> Ecov_process_pars, ma
     }
 
     // Ecov model option 2: AR1
-    if((Ecov_model(i) == 2) & (Ecov_use_re(i)==1)){
+    if((Ecov_model(i) == 2 || Ecov_model(i) == 3) & (Ecov_use_re(i)==1)){
       Type Ecov_mu = Ecov_process_pars(0,i); // mean
       for(int y = 0; y < n_y; y++) Ecov_x(y,i) = Ecov_mu + Ecov_re(y,i);
     }
@@ -153,6 +164,16 @@ matrix<Type> simulate_Ecov_re(vector<int> Ecov_model, matrix<Type> Ecov_process_
         AR1(Ecov_phi).simulate(re_i);
         re_i *= Ecov_sig;
         for(int y = 0; y < n_y; y++) re_sim(years_use(y),i) = re_i(y);
+      }
+      if(Ecov_model(i) == 3){
+        Type mean = Ecov_process_pars(0,i);
+        Type correlation = geninvlogit(Ecov_process_pars(2,i), Type(-1), Type(1), Type(1));
+        Type deviation = exp(Ecov_process_pars(1,i));
+        re_sim(years_use(0),i) = rnorm(Type(0), deviation / sqrt(Type(1) - correlation * correlation));
+        for(int year = 1; year < n_y; year++){
+          re_sim(years_use(year),i) = rnorm(
+            correlation * (re_sim(years_use(year-1),i) - mean), deviation);
+        }
       }
     }
   }

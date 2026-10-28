@@ -48,7 +48,7 @@ validate_input_safety <- function(input) {
     }
   }
   options <- list(
-    Ecov_model = 0:2,
+    Ecov_model = 0:3,
     Ecov_use_re = 0:1,
     Ecov_obs_sigma_opt = c(1L, 2L, 4L),
     Ecov_use_obs = 0:1

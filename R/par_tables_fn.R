@@ -484,13 +484,13 @@
       fe.vals <- c(fe.vals, pars$Ecov_process_pars[1,i])
       fe.cis <- rbind(fe.cis, ci(pars$Ecov_process_pars[1,i], sd$Ecov_process_pars[1,i]))
       if(data$Ecov_model[i] == 1) fe.names <- c(fe.names, paste0(ecov.labels[i], "RW Ecov$_1$"))
-      if(data$Ecov_model[i] == 2) fe.names <- c(fe.names, paste0(ecov.labels[i], "$\\mu$"))
+      if(data$Ecov_model[i] %in% c(2, 3)) fe.names <- c(fe.names, paste0(ecov.labels[i], "$\\mu$"))
     }
     if(!is.na(sd$Ecov_process_pars[2,i])){
       fe.vals <- c(fe.vals, exp(pars$Ecov_process_pars[2,i]))
       fe.cis <- rbind(fe.cis, ci(pars$Ecov_process_pars[2,i], sd$Ecov_process_pars[2,i], type = "exp"))
       if(data$Ecov_model[i] == 1) fe.names <- c(fe.names, paste0(ecov.labels[i], "RW $\\sigma$"))
-      if(data$Ecov_model[i] == 2) fe.names <- c(fe.names, paste0(ecov.labels[i], "$\\sigma$"))
+      if(data$Ecov_model[i] %in% c(2, 3)) fe.names <- c(fe.names, paste0(ecov.labels[i], "$\\sigma$"))
     }
     if(!is.na(sd$Ecov_process_pars[3,i])){
       fe.vals <- c(fe.vals, -1 + 2/(1 + exp(-pars$Ecov_process_pars[3,i])))

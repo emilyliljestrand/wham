@@ -33,9 +33,23 @@ Older multi-stock selectivity inputs are migrated from packed vectors or
 arrays without rebuilding the model from preparation options. Mean values,
 bounds, and mappings are retained, including shared annual random effects.
 
-Single-stock pre-2.0 inputs with stored ASAP3 data are migrated to the current
-input structure while retaining fitted values, parameter mappings,
-observations, bias correction, and correlation transforms. Environmental
+Supported single-stock pre-2.0 inputs are migrated to the current input
+structure while retaining fitted values, parameter mappings, observations,
+bias correction, and correlation transforms. Fits without stored ASAP3 data
+use their stored model years and dimensions. Early packed age-composition
+parameters, two abundance correlations, and fixed mortality baselines are
+converted to the current layout, including rebuilt observation indices.
+For early inputs with packed age-composition parameter vectors, supported
+age-composition likelihoods are multinomial, Dirichlet-multinomial, and
+logistic-normal with zeros missing. Stored age-composition likelihood
+components distinguish historical unweighted and sample-size-weighted
+variances. Migration uses unit or original effective sample sizes accordingly,
+retaining the originals in \code{input$legacy_age_comp_Neff}. Missing or
+ambiguous likelihood evidence produces an error instead of guessing.
+Later matrix-layout inputs retain their likelihood numbering and sample-size
+weights even when their observation indices need rebuilding.
+Estimated legacy mortality baselines with age-specific offsets are not
+supported. Environmental
 effects,
 selectivity or mortality random effects, weight-based mortality,
 steepness, and stored projections are not yet supported and produce
